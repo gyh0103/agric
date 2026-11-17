@@ -58,7 +58,7 @@ ln -sfn /usr/share/zoneinfo/Asia/Shanghai /etc/localtime
 systemctl enable --now mysql >/dev/null 2>&1 || systemctl enable --now mariadb
 
 # ---------- 3. 数据库 ----------
-db_pass=$(tr -dc 'A-Za-z0-9' </dev/urandom | head -c 20)
+db_pass=$(head -c 512 /dev/urandom | tr -dc 'A-Za-z0-9' | cut -c1-20)
 log "创建数据库 oasis 与专用账号"
 mysql --protocol=socket -uroot <<SQL
 CREATE DATABASE IF NOT EXISTS oasis DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
@@ -93,7 +93,7 @@ FLUSH PRIVILEGES;
 SQL
 else
   install -d -m 0750 "$ENV_DIR"
-  jwt_secret=$(tr -dc 'A-Za-z0-9' </dev/urandom | head -c 48)
+  jwt_secret=$(head -c 512 /dev/urandom | tr -dc 'A-Za-z0-9' | cut -c1-48)
   cat >"$ENV_FILE" <<ENV
 # 绿洲丰语运行配置 —— 修改后执行 systemctl restart oasis-harvest
 DB_URL=jdbc:mysql://127.0.0.1:3306/oasis?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
