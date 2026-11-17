@@ -285,7 +285,7 @@ function processAlert(item: (typeof alerts)[number]) {
 <template>
   <Transition name="drawer">
     <aside v-if="open" class="drawer" :class="`theme-${module}`" @click.stop>
-      <header><div><small>盐田丰语 · 数据工作台</small><h2>{{ title }}</h2></div><button aria-label="关闭" @click="$emit('close')">×</button></header>
+      <header><div><small>绿洲丰语 · 数据工作台</small><h2>{{ title }}</h2></div><button aria-label="关闭" @click="$emit('close')">×</button></header>
       <div class="source-strip"><span><i></i>共享演示数据</span><button @click="$emit('refresh')">刷新观测</button></div><p class="sync-time">农场观测与业务档案 · 每 30 秒同步</p>
       <div v-if="entity?.type === 'greenhouse'" class="greenhouse-entry"><button @click="$emit('enter-greenhouse', entity?.id || '')"><span><b>进入大棚</b><small>实景监控 · 数字孪生 · 植株数据</small></span><strong>→</strong></button></div>
 

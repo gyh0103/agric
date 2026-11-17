@@ -35,13 +35,13 @@ const ask = () => emit('ask',`分析${props.entity?.name || '当前农场'}的�
 function download() {
   if(!props.snapshot)return
   const url=URL.createObjectURL(new Blob([JSON.stringify(props.snapshot,null,2)],{type:'application/json'}))
-  const link=document.createElement('a');link.href=url;link.download=`盐田丰语-观测快照-${props.snapshot.farmId}-${new Date().toISOString().slice(0,10)}.json`;link.click();URL.revokeObjectURL(url)
+  const link=document.createElement('a');link.href=url;link.download=`绿洲丰语-观测快照-${props.snapshot.farmId}-${new Date().toISOString().slice(0,10)}.json`;link.click();URL.revokeObjectURL(url)
 }
 </script>
 
 <template>
   <aside class="agriculture-panel" aria-label="农业数据工作面板">
-    <header class="panel-head"><div><small>盐田丰语 · 作物详情</small><h1>{{ entity?.name || '农场作物总览' }}</h1></div><button class="panel-icon" aria-label="关闭数据面板" @click="emit('close')"><AgentIcon name="close" :size="18" /></button></header>
+    <header class="panel-head"><div><small>绿洲丰语 · 作物详情</small><h1>{{ entity?.name || '农场作物总览' }}</h1></div><button class="panel-icon" aria-label="关闭数据面板" @click="emit('close')"><AgentIcon name="close" :size="18" /></button></header>
     <div v-if="selectedZone" class="crop-profile"><span class="crop-emblem"><AgentIcon name="leaf" :size="32" /></span><div><strong>{{selectedZone.crop}}</strong><span class="crop-badge">作物档案</span><p>{{selectedZone.area}} · {{selectedZone.stage}}</p><small>{{entity?.name}} · {{snapshot?.virtualData?'软件演示':'业务档案'}}</small></div></div>
     <div class="source-strip"><span :class="{ live: !snapshot?.virtualData }"><i />{{ snapshot ? snapshot.virtualData ? '共享演示数据' : '业务数据' : '等待数据' }}</span><button :disabled="loading" @click="emit('refresh')">{{ loading ? '同步中…' : '刷新观测' }}</button></div>
     <p class="sync-time">{{ snapshot ? `快照时间 ${formatTime(snapshot.generatedAt)} · 每 30 秒同步` : '正在读取服务器数据' }}</p>

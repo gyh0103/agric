@@ -40,7 +40,7 @@ public class BaiduFaceClient {
 
     public BaiduFaceClient(@Value("${baidu.face.api-key:}") String apiKey,
                            @Value("${baidu.face.secret-key:}") String secretKey,
-                           @Value("${baidu.face.group-id:tianyan_users}") String groupId,
+                           @Value("${baidu.face.group-id:oasis_users}") String groupId,
                            @Value("${baidu.face.match-threshold:80}") int matchThreshold,
                            ObjectMapper objectMapper) {
         this.apiKey = apiKey == null ? "" : apiKey.trim();

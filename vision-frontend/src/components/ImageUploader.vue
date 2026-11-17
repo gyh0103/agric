@@ -1,6 +1,6 @@
 <script setup>
 import { ref } from 'vue'
-defineProps({ preview: String, filename: String, subject: { type: String, default: '叶片' }, hint: { type: String, default: '请上传清晰的鸭梨叶片图片。当前 V1 仅支持叶片；果实与枝梢暂不支持。' } })
+defineProps({ preview: String, filename: String, subject: { type: String, default: '叶片' }, hint: { type: String, default: '请上传清晰的作物叶片图片。当前 V1 仅支持叶片；果实与枝梢暂不支持。' } })
 const emit = defineEmits(['select', 'invalid'])
 const input = ref(null), dragging = ref(false)
 function choose(files) {

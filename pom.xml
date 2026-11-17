@@ -9,10 +9,10 @@
         <relativePath/> <!-- lookup parent from repository -->
     </parent>
     <groupId>com.example</groupId>
-    <artifactId>ty</artifactId>
-    <version>0.0.1-SNAPSHOT</version>
-    <name>ty</name>
-    <description>ty</description>
+    <artifactId>oasis-harvest</artifactId>
+    <version>0.1.0</version>
+    <name>绿洲丰语</name>
+    <description>甘肃河西走廊 · 绿洲智慧农业平台</description>
     <url/>
     <licenses>
         <license/>

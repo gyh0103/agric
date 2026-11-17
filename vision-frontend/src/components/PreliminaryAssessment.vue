@@ -20,7 +20,7 @@ defineProps({ assessment: Object, local: Object, observations: Array, vision: Ob
     <p v-for="(point,i) in assessment.uncertainties || []" :key="i">{{ point }}</p>
     <h3>通用核验建议</h3>
     <p v-for="(point,i) in observations || []" :key="i" class="answer">{{ point }}</p>
-    <div class="note"><strong>本地结论</strong><p>{{ local?.reason || '证据不足，暂不支持泊头本地疾病结论。' }}</p></div>
+    <div class="note"><strong>本地结论</strong><p>{{ local?.reason || '证据不足，暂不支持河西本地疾病结论。' }}</p></div>
   </section>
 </template>
 <style scoped>.preliminary-card{margin:18px 0;padding:18px;background:#f2f6ed;border:1px solid #d7e3cb;border-radius:12px}.preliminary-card h3{font-size:13px;margin:18px 0 8px}.preliminary-card p{font-size:13px;white-space:pre-wrap}.tag{margin-right:6px}</style>

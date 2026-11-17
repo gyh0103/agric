@@ -1,9 +1,9 @@
 spring:
   application:
-    name: ty
+    name: oasis-harvest
   datasource:
-    # 本地 Demo 默认连接 Docker MySQL；部署时使用环境变量覆盖。
-    url: ${DB_URL:jdbc:mysql://localhost:3306/tianyan?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true}
+    # 默认连接本地 MySQL；部署时使用环境变量覆盖。
+    url: ${DB_URL:jdbc:mysql://localhost:3306/oasis?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true}
     username: ${DB_USERNAME:root}
     password: ${DB_PASSWORD:Root_123456}
     driver-class-name: com.mysql.cj.jdbc.Driver
@@ -31,7 +31,7 @@ agent:
 app:
   jwt:
     # 仅供本地 Demo；部署时必须用至少 32 字节的 JWT_SECRET 覆盖。
-    secret: ${JWT_SECRET:ty-local-demo-jwt-secret-not-for-production-2026}
+    secret: ${JWT_SECRET:oasis-harvest-local-demo-jwt-secret-not-for-production-2026}
     expire-days: 7
 
 baidu:
@@ -39,7 +39,7 @@ baidu:
     # 百度智能云人脸识别应用的 API Key / Secret Key，通过环境变量注入，不写入仓库
     api-key: ${BAIDU_FACE_AK:}
     secret-key: ${BAIDU_FACE_SK:}
-    group-id: tianyan_users   # 人脸库用户组名
+    group-id: oasis_users   # 人脸库用户组名
     match-threshold: 80       # 匹配分数阈值 0-100
 
 deepseek:
@@ -49,6 +49,6 @@ deepseek:
   model: ${DEEPSEEK_MODEL:deepseek-v4-flash}
 
 weather:
-  # 天气查询 WGS84 坐标；默认泊头城区（区域天气参考，不是演示地块坐标）。
-  latitude: ${WEATHER_LATITUDE:38.07366}
-  longitude: ${WEATHER_LONGITUDE:116.56667}
+  # 天气查询 WGS84 坐标；默认武威凉州区（区域天气参考，不是演示地块坐标）。
+  latitude: ${WEATHER_LATITUDE:37.9284}
+  longitude: ${WEATHER_LONGITUDE:102.6397}

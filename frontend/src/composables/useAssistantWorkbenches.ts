@@ -36,7 +36,7 @@ export function useAssistantWorkbenches() {
     if (workbenches.value.some(item => item.id === id)) activeWorkbenchId.value = id
   }
 
-  function createWorkbench(name = '我的盐田工作面板') {
+  function createWorkbench(name = '我的绿洲工作面板') {
     const id = `workbench-${Date.now()}`
     workbenches.value.push({ id, name, icon: '田', widgets: [], pinned: true, updatedAt: new Date().toISOString() })
     activeWorkbenchId.value = id

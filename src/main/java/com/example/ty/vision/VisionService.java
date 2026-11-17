@@ -38,7 +38,7 @@ public class VisionService {
     public View create(Long owner,String farmId,String plotId,MultipartFile upload) {
         if(!Boolean.TRUE.equals(model().get("ready")))throw new BizException("VISION_UNAVAILABLE","本地视觉模型未就绪",503);
         var plot=assets.findByFarmIdAndId(farmId,plotId).orElseThrow(()->BizException.notFound("地块不存在"));
-        if(!"field".equals(plot.getType())||!"泊头鸭梨".equals(plot.getCrop()))throw BizException.badRequest("请选择鸭梨地块；当前模型只检测梨叶近照");
+        if(!"field".equals(plot.getType())||!"河西绿洲特色作物".equals(plot.getCrop()))throw BizException.badRequest("请选择鸭梨地块；当前模型只检测梨叶近照");
         if(upload.isEmpty()||upload.getSize()>8*1024*1024)throw BizException.badRequest("请上传不超过 8 MB 的 PNG 或 JPEG 图像");
         Path folder=null;
         try {

@@ -45,7 +45,7 @@ export function buildDetailedTransportVehicle(environment?:THREE.Texture){
  // Side maker plate uses a local texture; no remote model or texture fetches.
  if(typeof document!=='undefined'){
   const canvas=document.createElement('canvas');canvas.width=256;canvas.height=96;const ctx=canvas.getContext('2d')!
-  ctx.fillStyle='#214b37';ctx.fillRect(0,0,256,96);ctx.fillStyle='#e0e6d5';ctx.font='600 30px sans-serif';ctx.textAlign='center';ctx.fillText('盐田丰语',128,44);ctx.font='18px sans-serif';ctx.fillStyle='#abbda8';ctx.fillText('YT • AUTONOMOUS 01',128,74)
+  ctx.fillStyle='#214b37';ctx.fillRect(0,0,256,96);ctx.fillStyle='#e0e6d5';ctx.font='600 30px sans-serif';ctx.textAlign='center';ctx.fillText('绿洲丰语',128,44);ctx.font='18px sans-serif';ctx.fillStyle='#abbda8';ctx.fillText('OH • AUTONOMOUS 01',128,74)
   const texture=new THREE.CanvasTexture(canvas);texture.colorSpace=THREE.SRGBColorSpace;textures.push(texture)
   const label=material(0xffffff,.55);label.map=texture
   for(const side of [-1,1])part(chassis,new THREE.PlaneGeometry(.37,.14),label,.39,.58,side*.477,0,side<0?Math.PI:0)

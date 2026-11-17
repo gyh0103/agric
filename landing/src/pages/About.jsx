@@ -50,7 +50,7 @@ export default function About() {
         eyebrow="About"
         title={
           <>
-            盐田丰语<br />为现代农业而生的 AI 平台
+            绿洲丰语<br />为现代农业而生的 AI 平台
           </>
         }
         subtitle="我们相信农业的数据不该被藏在报表里。让自然语言成为入口，让农场空间成为界面。"
@@ -64,7 +64,7 @@ export default function About() {
         <div className="mx-auto max-w-6xl">
           <SectionTitle
             eyebrow="Brand"
-            title="「盐田丰语」四个字"
+            title="「绿洲丰语」四个字"
             subtitle="每一个字，都是一层产品哲学。"
           />
           <div className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">

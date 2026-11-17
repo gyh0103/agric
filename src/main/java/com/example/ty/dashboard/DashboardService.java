@@ -66,7 +66,7 @@ public class DashboardService {
         int openAlerts = (int) alertRows.stream().filter(item -> !"已恢复".equals(item.getStatus()) && !"已处理".equals(item.getStatus())).count();
         int health = (int) Math.round(assetRows.stream().filter(item -> item.getHealth() != null).mapToInt(FarmAsset::getHealth).average().orElse(92));
 
-        return new DashboardSnapshot(farmId, YantianDemoInitializer.FARM_ID.equals(farmId) ? "沧州盐碱地示范基地" : "原温室演示园", LocalDateTime.now(), true,
+        return new DashboardSnapshot(farmId, YantianDemoInitializer.FARM_ID.equals(farmId) ? "武威民勤蜜瓜基地" : "张掖绿洲制种基地", LocalDateTime.now(), true,
                 new DashboardSnapshot.Summary(health, deviceRows.size(), online, running, openAlerts, 82, 38.2),
                 assetRows.stream().map(item -> assetDto(item, activeAlertEntityIds)).toList(),
                 assetRows.stream().filter(item -> item.getZoneId() != null).map(this::zoneDto).toList(),
@@ -483,7 +483,7 @@ public class DashboardService {
     private String lastSeen(LocalDateTime at) { long seconds=Math.max(0,Duration.between(at,LocalDateTime.now()).getSeconds()); if(seconds<5)return "刚刚"; if(seconds<60)return seconds+" 秒前"; return seconds/60+" 分钟前"; }
     private String format(double value,String key) { return ("temperature".equals(key)||"co2".equals(key)||"light".equals(key))?String.format(Locale.ROOT,"%.1f",value):String.format(Locale.ROOT,"%.0f",value); }
     private double defaultFlow(String kind) { return switch(kind){case "fertigation"->12.6;case "valve"->10.2;case "zone"->8.4;default->0;}; }
-    private String defaultSoilPlot(String farmId) { return YantianDemoInitializer.FARM_ID.equals(farmId) ? "yt-pear-03" : "field-04"; }
+    private String defaultSoilPlot(String farmId) { return YantianDemoInitializer.FARM_ID.equals(farmId) ? "yt-jujube-01" : "field-04"; }
     private double random(double min,double max){return ThreadLocalRandom.current().nextDouble(min,max);}
     private double clamp(String key,double value){return switch(key){case "temperature"->Math.max(20,Math.min(34,value));case "airHumidity"->Math.max(35,Math.min(85,value));case "soilMoisture"->Math.max(25,Math.min(75,value));case "light"->Math.max(0,Math.min(1200,value));case "co2"->Math.max(350,Math.min(1000,value));default->value;};}
     private int greenhouseIndex(String id) { try { return Integer.parseInt(id.substring(id.length() - 2)); } catch (Exception ignored) { return 1; } }

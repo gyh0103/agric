@@ -59,7 +59,7 @@ onBeforeUnmount(()=>{disposed=true;clearInterval(timer);if(image.value)URL.revok
   <Teleport to="body" :disabled="embedded">
   <div class="vision-backdrop" :class="{embedded}" @click.self="emit('close')" @keydown.esc="emit('close')">
     <section ref="panel" @keydown="!embedded && trap($event)" class="vision-panel" :data-record-id="active?.id" :role="embedded ? 'region' : 'dialog'" :aria-modal="embedded ? undefined : true" aria-label="鸭梨视觉工作室" tabindex="-1">
-      <header><div><small>盐田丰语 · 病虫害检测</small><h1>鸭梨病虫害检测 <span>梨叶近照</span></h1></div><button aria-label="关闭视觉工作室" @click="emit('close')">×</button></header>
+      <header><div><small>绿洲丰语 · 病虫害检测</small><h1>鸭梨病虫害检测 <span>梨叶近照</span></h1></div><button aria-label="关闭视觉工作室" @click="emit('close')">×</button></header>
       <div class="vision-layout">
         <aside><label>关联地块<select v-model="plot" aria-label="视觉关联地块"><option v-for="p in eligible" :key="p.entityId" :value="p.entityId">{{ names[p.entityId]||p.entityId }}</option></select></label>
           <div class="input-modes" aria-label="检测输入方式"><button :aria-pressed="inputMode==='upload'" @click="inputMode='upload'">图片上传</button><button :aria-pressed="inputMode==='camera'" @click="inputMode='camera'">摄像头</button></div>

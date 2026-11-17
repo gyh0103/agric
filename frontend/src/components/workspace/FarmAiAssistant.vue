@@ -79,7 +79,7 @@ onBeforeUnmount(() => controller?.abort())
       <section v-if="open" class="assistant-panel" aria-label="小田 AI 农业助手">
         <header>
           <div class="assistant-avatar"><span>田</span><i></i></div>
-          <div><small>盐田丰语 · 本地农业任务</small><h2>小田助手</h2></div>
+          <div><small>绿洲丰语 · 本地农业任务</small><h2>小田助手</h2></div>
           <a class="online" href="/platform/assistant">执行记录 ↗</a>
           <button class="clear" title="清空对话" aria-label="清空对话" @click="clearConversation">
             <svg viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3m-8 0 1 13h8l1-13M10 11v5m4-5v5"/></svg>

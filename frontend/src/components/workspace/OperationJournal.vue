@@ -27,7 +27,7 @@ async function advance(row:OperationRecord){if(busy.value||!stageNote.value.trim
 function download(){
  const cell=(value:unknown)=>{let text=String(value??'');if(/^[=+@-]/.test(text))text="'"+text;return '"'+text.replace(/"/g,'""')+'"'}
  const data=[['记录类型','标题','状态','内容','地块','记录时间','记录人','数量','单位'],...visible.value.map(row=>[labels[row.kind]||'业务记录',row.title,stages[row.stage]||'已记录',operationDescription(row.detail),entityName(row.entityId),new Date(row.createdAt).toLocaleString('zh-CN',{hour12:false}),row.operatorName||'演示系统',row.quantity??'',row.unit||''])]
- const url=URL.createObjectURL(new Blob(['\ufeff'+data.map(row=>row.map(cell).join(',')).join('\r\n')],{type:'text/csv;charset=utf-8'}));const link=document.createElement('a');link.href=url;link.download='盐田丰语-业务记录.csv';link.click();URL.revokeObjectURL(url)
+ const url=URL.createObjectURL(new Blob(['\ufeff'+data.map(row=>row.map(cell).join(',')).join('\r\n')],{type:'text/csv;charset=utf-8'}));const link=document.createElement('a');link.href=url;link.download='绿洲丰语-业务记录.csv';link.click();URL.revokeObjectURL(url)
 }
 </script>
 <template>

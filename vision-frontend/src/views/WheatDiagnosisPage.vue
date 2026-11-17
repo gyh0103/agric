@@ -57,7 +57,7 @@ function safeUrl(value) { try { const url = new URL(value); return ['http:', 'ht
 </script>
 <template>
 <main class="wheat-workbench">
-  <section class="hero"><div><div class="eyebrow">黄骅旱碱麦 · 多视角观察</div><h1>看见苗情，<em>循证研判。</em></h1><p>叶片症状 × 冠层表现 × 麦穗检测 · 知识图谱与 GraphRAG</p></div><div class="hero-note"><span class="dot"></span> 三类图片，可单独或联合分析<span>视觉线索 ≠ 病害或缺水确诊</span></div></section>
+  <section class="hero"><div><div class="eyebrow">高台玉米制种 · 多视角观察</div><h1>看见苗情，<em>循证研判。</em></h1><p>叶片症状 × 冠层表现 × 麦穗检测 · 知识图谱与 GraphRAG</p></div><div class="hero-note"><span class="dot"></span> 三类图片，可单独或联合分析<span>视觉线索 ≠ 病害或缺水确诊</span></div></section>
   <DiagnosisProgress :busy="busy" :result="result" />
   <div class="workspace"><aside>
     <section class="card upload-card"><div class="section-heading"><h2>上传观测图片</h2><span class="tag">任选 1—3 类</span></div>
@@ -66,7 +66,7 @@ function safeUrl(value) { try { const url = new URL(value); return ['http:', 'ht
       <p class="muted">已选：{{ inputs.filter(item => files[item.key]).map(item => item.name).join('、') || '尚未选择图片' }}</p>
     </section>
     <form class="card" @submit.prevent="submit"><h2>补充田间信息 <small>选填</small></h2><p class="muted">请填写实际种植地；留空的信息保持未知。</p>
-      <label>所在地<input v-model="context.region" placeholder="例如：河北省沧州市黄骅市" @input="invalidate" /></label>
+      <label>所在地<input v-model="context.region" placeholder="例如：河北省河西市黄骅市" @input="invalidate" /></label>
       <label>生育阶段<input v-model="context.growth_stage" placeholder="例如：拔节期、灌浆期" @input="invalidate" /></label>
       <div class="form-grid"><label>温度（℃）<input v-model="context.temperature" type="number" step="any" @input="invalidate" /></label><label>湿度（%）<input v-model="context.humidity" type="number" min="0" max="100" step="any" @input="invalidate" /></label></div>
       <label class="knowledge-toggle"><input v-model="knowledgeEnabled" type="checkbox" @change="invalidate" />结合知识图谱与文档证据</label>

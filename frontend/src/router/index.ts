@@ -13,7 +13,7 @@ const router = createRouter({
     { path: '/multicrop', component: () => import('@/views/MultiCropWorkspaceView.vue'), meta: { title: '多作物研判' } },
     { path: '/wheat-diagnosis', redirect: '/multicrop?crop=wheat' },
     { path: '/', redirect: '/workspaces/farm-01' },
-    { path: '/assistant', component: AgentWorkspaceView, meta: { title: '盐田丰语 · 智能问农' } },
+    { path: '/assistant', component: AgentWorkspaceView, meta: { title: '绿洲丰语 · 智能问农' } },
     { path: '/assistant/legacy', component: AssistantPreviewView, meta: { title: '原问农工作台' } },
     { path: '/workspaces/:id', component: FarmWorkspaceView, meta: { title: '数据工作台' } },
     { path: '/workspaces/:id/greenhouses/:greenhouseId', component: GreenhouseInteriorView, meta: { title: '大棚内部' } },
@@ -38,6 +38,6 @@ router.beforeEach(async to => {
   }
 })
 
-router.afterEach(to => { document.title = `${String(to.meta.title || '数据工作台')} · 盐田丰语` })
+router.afterEach(to => { document.title = `${String(to.meta.title || '数据工作台')} · 绿洲丰语` })
 
 export default router

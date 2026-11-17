@@ -13,7 +13,7 @@ const nodes=computed(()=>(graph.value?.nodes||[]).filter(n=>String(n.name||n.id)
 const nodeMap=computed(()=>Object.fromEntries((graph.value?.nodes||[]).map(n=>[n.id,n.name||n.id])))
 const entityMap=computed(()=>Object.fromEntries((graph.value?.nodes||[]).map(n=>[n.id,n])))
 const edges=computed(()=>(graph.value?.edges||[]).filter(e=>e.source===selected.value||e.target===selected.value).slice(0,30))
-const cropName=computed(()=>({pear:'泊头鸭梨',wheat:'黄骅旱碱麦',jujube:'沧州金丝小枣',vegetable:'青县设施蔬菜'}[props.crop]))
+const cropName=computed(()=>({pear:'临泽小枣',wheat:'高台玉米制种',jujube:'民勤蜜瓜',vegetable:'酒泉设施蔬菜'}[props.crop]))
 const neighbors=computed(()=>[...new Set(edges.value.map(e=>e.source===selected.value?e.target:e.source))].filter(id=>id!==selected.value).slice(0,10).map((id,i,all)=>{
  const angle=i*Math.PI*2/all.length-Math.PI/2
  return {id,name:nodeMap.value[id]||id,x:300+Math.cos(angle)*205,y:235+Math.sin(angle)*165}
@@ -61,7 +61,7 @@ watch(()=>props.crop,load,{immediate:true})
 <main class="knowledge">
 <section class="hero"><div><div class="eyebrow">农业知识 / {{cropName}}</div><h1>多作物知识工作台</h1><p>从症状找到关联，让每一条建议有据可循。</p></div><button class="refresh" :disabled="loading" @click="load">{{loading?'正在连接…':'↻ 刷新图谱'}}</button></section>
 <div class="graph-summary"><span class="status-dot"></span><span>{{loading?'正在启动并连接图谱':graph?'图谱已连接':'图谱连接失败'}}</span><span class="summary-divider"></span><strong>{{graph?.nodes?.length||0}}</strong><span>知识实体</span><strong>{{graph?.edges?.length||0}}</strong><span>关联关系</span><span class="summary-caption">{{cropName}} · 独立作物知识库</span></div>
-<p v-if="crop==='vegetable'" class="note">青县设施蔬菜当前支持知识查询。番茄视觉仍处于数据准备阶段，尚无已上线模型。</p>
+<p v-if="crop==='vegetable'" class="note">酒泉设施蔬菜当前支持知识查询。番茄视觉仍处于数据准备阶段，尚无已上线模型。</p>
 <p v-if="error" role="alert" class="error">{{error}}</p>
 <div class="knowledge-grid">
 <section class="card entity-panel"><div class="panel-heading"><h2>知识实体</h2><span>{{nodes.length}}</span></div><p class="muted">检索并选择需要探索的知识</p><div class="search-field"><span>⌕</span><input v-model="filter" aria-label="搜索图谱实体" placeholder="搜索症状、风险、措施"></div><div class="entity-list"><button v-for="node in nodes" :key="node.id" :aria-pressed="selected===node.id" @click="selected=node.id"><span class="entity-mark" :style="{background:nodeAppearance(node,crop).fill,color:nodeAppearance(node,crop).stroke}">{{nodeAppearance(node, crop).icon}}</span><span class="entity-copy"><strong>{{node.name||node.id}}</strong><small>{{node.type}}</small></span><span class="entity-arrow">›</span></button></div><p v-if="graph&&!nodes.length" class="muted">没有匹配实体，试试其他关键词。</p></section>

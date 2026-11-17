@@ -15,7 +15,7 @@ watch(()=>route.fullPath,load,{immediate:true})
 </script>
 <template>
 <main class="trace-page"><div class="trace-shell">
- <header><span class="brand">盐田丰语</span><span>农产品批次追溯</span></header>
+ <header><span class="brand">绿洲丰语</span><span>农产品批次追溯</span></header>
  <section v-if="loading" class="state" role="status">正在读取批次信息…</section>
  <section v-else-if="error" class="state" role="alert"><h1>暂时无法查看</h1><p>{{error}}</p><button @click="load">重新读取</button></section>
  <template v-else-if="batch">

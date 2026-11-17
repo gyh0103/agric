@@ -10,7 +10,7 @@ const mode=ref(crop.value==='vegetable'||new URLSearchParams(location.search).ge
 watch(crop,()=>{if(crop.value==='vegetable')mode.value='knowledge'})
 </script>
 <template>
-  <header><a class="brand" href="/" aria-label="诊断工作台首页"><span class="brand-mark">叶</span><div>盐田丰语<span>多模态智能诊断</span></div></a><div class="header-right"><span class="version">盐田丰语 / 多作物研判</span><select v-model="crop" aria-label="当前作物"><option value="pear">泊头鸭梨</option><option value="wheat">黄骅旱碱麦</option><option value="jujube">沧州金丝小枣</option><option value="vegetable">青县设施蔬菜 · 知识</option></select></div></header>
+  <header><a class="brand" href="/" aria-label="诊断工作台首页"><span class="brand-mark">叶</span><div>绿洲丰语<span>多模态智能诊断</span></div></a><div class="header-right"><span class="version">绿洲丰语 / 多作物研判</span><select v-model="crop" aria-label="当前作物"><option value="pear">临泽小枣</option><option value="wheat">高台玉米制种</option><option value="jujube">民勤蜜瓜</option><option value="vegetable">酒泉设施蔬菜 · 知识</option></select></div></header>
   <KnowledgeWorkspace v-if="mode==='knowledge'" :crop="crop"/>
   <DiagnosisPage v-else-if="crop === 'pear'" />
   <WheatDiagnosisPage v-else-if="crop === 'wheat'" />

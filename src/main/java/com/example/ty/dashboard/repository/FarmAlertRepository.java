@@ -6,4 +6,5 @@ public interface FarmAlertRepository extends JpaRepository<FarmAlert, Long> {
     List<FarmAlert> findTop20ByFarmIdOrderByOccurredAtDesc(String farmId);
     boolean existsByFarmIdAndEntityIdAndTitleAndStatusNotIn(String farmId, String entityId, String title, List<String> statuses);
     boolean existsByFarmIdAndTitle(String farmId, String title);
+    List<FarmAlert> findByFarmId(String farmId);
 }
