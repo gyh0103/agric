@@ -63,7 +63,7 @@ for app in landing frontend vision-frontend; do
 done
 cd "$root"
 bash "$root/mvnw" -DskipTests package
-install -m 0644 target/ty-0.0.1-SNAPSHOT.jar "$root/application.jar"
+install -m 0644 target/oasis-harvest-0.1.0.jar "$root/application.jar"
 
 install -m 0644 "$root/deploy/cloud/agric.service" /etc/systemd/system/agric.service
 install -m 0644 "$root/deploy/cloud/agric-cloud-stack.service" /etc/systemd/system/agric-cloud-stack.service
