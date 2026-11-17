@@ -14,4 +14,9 @@ public class PlatformSpaForwardController {
     public String platform() {
         return "forward:/platform/index.html";
     }
+
+    @GetMapping({ "/multicrop", "/multicrop/" })
+    public String multicrop() {
+        return "forward:/multicrop/index.html";
+    }
 }
