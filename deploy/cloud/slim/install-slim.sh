@@ -25,22 +25,26 @@ mem_mb=$(awk '/MemTotal/{print int($2/1024)}' /proc/meminfo)
 disk_mb=$(df -Pm /opt | awk 'NR==2{print $4}')
 log "检测到内存 ${mem_mb}MB，/opt 可用磁盘 ${disk_mb}MB"
 (( disk_mb > 3000 )) || die "磁盘剩余不足 3GB，请先清理"
-if (( mem_mb < 3500 )); then
-  heap=768m
+if (( mem_mb < 1500 )); then
+  heap=448m; swap_gb=4; ibp=96M; maxconn=30
+elif (( mem_mb < 3500 )); then
+  heap=896m; swap_gb=2; ibp=192M; maxconn=50
 elif (( mem_mb < 7500 )); then
-  heap=1536m
+  heap=1536m; swap_gb=0; ibp=256M; maxconn=60
 else
-  heap=2560m
+  heap=2560m; swap_gb=0; ibp=512M; maxconn=100
 fi
 
 # ---------- 1. swap（小内存机器必需）----------
-if (( mem_mb < 3500 )) && [[ ! -f /swapfile ]]; then
-  log "内存偏小，创建 2GB swap"
-  fallocate -l 2G /swapfile 2>/dev/null || dd if=/dev/zero of=/swapfile bs=1M count=2048 status=none
+if (( swap_gb > 0 )) && [[ ! -f /swapfile ]]; then
+  log "内存 ${mem_mb}MB 偏小，创建 ${swap_gb}GB swap"
+  fallocate -l "${swap_gb}G" /swapfile 2>/dev/null || dd if=/dev/zero of=/swapfile bs=1M count=$((swap_gb*1024)) status=none
   chmod 600 /swapfile
   mkswap /swapfile >/dev/null
   swapon /swapfile
   grep -q '^/swapfile' /etc/fstab || echo '/swapfile none swap sw 0 0' >> /etc/fstab
+  echo 'vm.swappiness = 60' >/etc/sysctl.d/99-oasis-swap.conf
+  sysctl -q -p /etc/sysctl.d/99-oasis-swap.conf
 fi
 
 # ---------- 2. 安装依赖 ----------
@@ -65,11 +69,12 @@ FLUSH PRIVILEGES;
 SQL
 
 # 小内存调优（幂等）
-cat >/etc/mysql/mysql.conf.d/zz-oasis.cnf <<'CNF'
+cat >/etc/mysql/mysql.conf.d/zz-oasis.cnf <<CNF
 [mysqld]
-innodb_buffer_pool_size = 256M
+innodb_buffer_pool_size = $ibp
 performance_schema = OFF
-max_connections = 60
+max_connections = $maxconn
+table_open_cache = 200
 CNF
 systemctl restart mysql
 
@@ -96,7 +101,9 @@ DB_USERNAME=oasis
 DB_PASSWORD=$db_pass
 JWT_SECRET=$jwt_secret
 SERVER_PORT=$SERVER_PORT
-JAVA_OPTS=-Xms256m -Xmx$heap -XX:MaxMetaspaceSize=256m -Duser.timezone=Asia/Shanghai
+SERVER_TOMCAT_THREADS_MAX=40
+SERVER_TOMCAT_THREADS_MIN_SPARE=4
+JAVA_OPTS=-Xms128m -Xmx$heap -XX:MaxMetaspaceSize=192m -XX:+UseSerialGC -XX:ReservedCodeCacheSize=64m -Xss512k -Duser.timezone=Asia/Shanghai
 # 可选：接入大模型问答（不填则问答功能自动降级）
 # AGENT_BASE_URL=https://api.deepseek.com/v1
 # AGENT_MODEL=deepseek-chat
@@ -168,9 +175,9 @@ systemctl enable oasis-harvest
 systemctl restart oasis-harvest
 
 # ---------- 7. 健康检查 ----------
-log "等待应用启动（最多 90 秒）"
+log "等待应用启动（最多 4 分钟，首次建表+播种较慢）"
 ok=0
-for _ in $(seq 1 45); do
+for _ in $(seq 1 120); do
   if curl -fsS "http://127.0.0.1:$SERVER_PORT/api/health" >/dev/null 2>&1; then ok=1; break; fi
   sleep 2
 done
