@@ -20,7 +20,8 @@ const observedLabel = computed(() => {
   if (!weather.value) return error.value ? '农场传感器 · 天气服务暂不可用' : '农场传感器数据'
   const time = new Date(weather.value.observedAt)
   const label = Number.isNaN(time.getTime()) ? weather.value.observedAt.slice(11, 16) : time.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
-  return `泊头区域天气 · ${weather.value.source} · ${label}`
+  const city = weather.value.cityLabel?.trim() || '当前区域'
+  return `${city}天气 · ${weather.value.source} · ${label}`
 })
 
 async function refreshWeather() {
