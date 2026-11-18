@@ -2,6 +2,8 @@ package com.example.ty.vision;
 
 import com.example.ty.admin.SettingsService;
 import com.example.ty.auth.exception.BizException;
+import com.example.ty.catalog.DiseaseProfile;
+import com.example.ty.catalog.DiseaseProfileRepository;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
@@ -36,8 +38,8 @@ import java.util.*;
 @Service
 public class CloudVisionService {
 
-    /** 单张图片送入模型前的最长边，压缩后通常只有几百 KB，可显著降低往返耗时。 */
-    private static final int MAX_EDGE = 1280;
+    /** 单张图片送入模型前的最长边默认值，可在后台修改。 */
+    private static final int DEFAULT_MAX_EDGE = 1280;
     /** 长图压缩阈值：小于该体积且尺寸合规的图片直接原样上传。 */
     private static final int KEEP_ORIGINAL_BELOW = 400 * 1024;
     /** 最多尝试次数；中转网关偶发连接超时与 502，重试能明显提高成功率。 */
@@ -45,11 +47,13 @@ public class CloudVisionService {
 
     private final ObjectMapper json;
     private final SettingsService settings;
+    private final DiseaseProfileRepository diseases;
     private final HttpClient http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(20)).version(HttpClient.Version.HTTP_1_1).build();
 
-    public CloudVisionService(ObjectMapper json, SettingsService settings) {
+    public CloudVisionService(ObjectMapper json, SettingsService settings, DiseaseProfileRepository diseases) {
         this.json = json;
         this.settings = settings;
+        this.diseases = diseases;
     }
 
     private String baseUrl() {
@@ -70,6 +74,15 @@ public class CloudVisionService {
             return Math.min(Math.max(seconds, 10), 300);
         } catch (Exception e) {
             return 60;
+        }
+    }
+
+    private int maxEdge() {
+        try {
+            int value = Integer.parseInt(settings.get(SettingsService.VISION_MAX_EDGE).trim());
+            return Math.min(Math.max(value, 640), 2048);
+        } catch (Exception e) {
+            return DEFAULT_MAX_EDGE;
         }
     }
 
@@ -159,17 +172,18 @@ public class CloudVisionService {
     }
 
     /**
-     * 把上传图片压到适合模型处理的大小：长边不超过 {@link #MAX_EDGE}，
+     * 把上传图片压到适合模型处理的大小：长边不超过后台配置值，
      * 体积超过阈值时重新编码为 JPEG。ImageIO 不支持 webp 时回退原图。
      */
     private String dataUrl(byte[] bytes, String mime) {
         byte[] out = bytes;
         String outMime = mime;
+        int maxEdge = maxEdge();
         try {
             BufferedImage source = ImageIO.read(new ByteArrayInputStream(bytes));
             if (source != null) {
                 int width = source.getWidth(), height = source.getHeight();
-                double scale = Math.min(1.0, (double) MAX_EDGE / Math.max(width, height));
+                double scale = Math.min(1.0, (double) maxEdge / Math.max(width, height));
                 boolean needScale = scale < 1.0;
                 if (needScale || bytes.length > KEEP_ORIGINAL_BELOW) {
                     int targetWidth = Math.max(1, (int) Math.round(width * scale));
@@ -266,17 +280,52 @@ public class CloudVisionService {
         return values;
     }
 
-    private static String prompt(String crop, String task) {
-        return "你是甘肃河西走廊（张掖、武威、酒泉、金昌）的农业植保专家，熟悉当地主栽作物：制种玉米、马铃薯、酿酒葡萄、枸杞、蜜瓜、红枣、高原夏菜、小麦。"
-                + "请判断这张照片中的" + (crop == null || crop.isBlank() ? "作物" : crop) + "的" + (task == null || task.isBlank() ? "长势与病害" : task) + "情况。"
-                + "只输出一个 JSON 对象，不要 markdown 代码块，不要任何解释文字。字段："
-                + "{\"disease\":\"最可能的病害或生理问题名称（中文，无法判断写“未见明显异常”）\","
-                + "\"code\":\"英文小写代号，如 leaf_rust，无法判断写 unknown\","
-                + "\"confidence\":0到1之间的小数,"
-                + "\"severity\":\"无/轻度/中度/重度之一\","
-                + "\"symptoms\":[\"照片中可见的症状，最多4条\"],"
-                + "\"advice\":[\"结合河西走廊气候与水肥条件的处置建议，最多4条\"],"
-                + "\"note\":\"需要补充哪些观察才能确诊，一句话\"}。"
-                + "如果照片不是作物或无法辨认，disease 写“无法识别”，confidence 写 0。";
+    private String prompt(String crop, String task) {
+        String cropText = crop == null || crop.isBlank() ? "作物" : crop;
+        String taskText = task == null || task.isBlank() ? "长势与病害" : task;
+        StringBuilder text = new StringBuilder();
+        String custom = settings.get(SettingsService.VISION_PROMPT).trim();
+        if (custom.isBlank()) {
+            text.append("你是甘肃河西走廊（张掖、武威、酒泉、金昌）的农业植保专家，熟悉当地主栽作物：制种玉米、马铃薯、酿酒葡萄、枸杞、蜜瓜、红枣、高原夏菜、小麦。");
+        } else {
+            text.append(custom.replace("{{crop}}", cropText).replace("{{task}}", taskText)).append('\n');
+        }
+        text.append("请判断这张照片中的").append(cropText).append("的").append(taskText).append("情况。");
+        String reference = diseaseReference(cropText);
+        if (!reference.isBlank()) {
+            text.append("本地已登记的该作物病害参考（仅用于比对，不要照抄，也不要因为照片不符就强行匹配）：")
+                    .append(reference).append("。");
+        }
+        text.append("只输出一个 JSON 对象，不要 markdown 代码块，不要任何解释文字。字段：")
+                .append("{\"disease\":\"最可能的病害或生理问题名称（中文，无法判断写“未见明显异常”）\",")
+                .append("\"code\":\"英文小写代号，如 leaf_rust，无法判断写 unknown\",")
+                .append("\"confidence\":0到1之间的小数,")
+                .append("\"severity\":\"无/轻度/中度/重度之一\",")
+                .append("\"symptoms\":[\"照片中可见的症状，最多4条\"],")
+                .append("\"advice\":[\"结合河西走廊气候与水肥条件的处置建议，最多4条\"],")
+                .append("\"note\":\"需要补充哪些观察才能确诊，一句话\"}。")
+                .append("如果照片不是作物或无法辨认，disease 写“无法识别”，confidence 写 0。");
+        return text.toString();
+    }
+
+    /** 从后台维护的病害知识库中挑出与当前作物匹配的条目，作为识别参考。 */
+    private String diseaseReference(String cropText) {
+        try {
+            List<DiseaseProfile> all = diseases.findByEnabledTrueOrderByCropAscSortOrderAsc();
+            List<String> matched = new ArrayList<>();
+            for (DiseaseProfile item : all) {
+                if (matched.size() >= 8) break;
+                String crop = item.getCrop();
+                if (crop == null || crop.isBlank()) continue;
+                if (!cropText.contains(crop) && !crop.contains(cropText)) continue;
+                String symptoms = item.getSymptoms() == null ? "" : item.getSymptoms().trim();
+                if (symptoms.length() > 60) symptoms = symptoms.substring(0, 60) + "…";
+                matched.add(item.getName() + (symptoms.isBlank() ? "" : "（" + symptoms + "）"));
+            }
+            return String.join("；", matched);
+        } catch (Exception e) {
+            log.warn("读取病害知识库失败，识别将不带参考：{}", e.toString());
+            return "";
+        }
     }
 }

@@ -79,3 +79,66 @@ export const saveSettings = (values: Record<string, string>) =>
     method: 'PUT',
     body: JSON.stringify(values)
   })
+
+// ---------- 作物档案 ----------
+
+export interface AdminCrop {
+  id: string
+  name: string
+  aliases?: string
+  category?: string
+  stages?: string
+  visionTasks?: string
+  notes?: string
+  enabled: boolean
+  sortOrder: number
+}
+
+export const fetchAdminCrops = () => request<AdminCrop[]>('/crops')
+export const createAdminCrop = (crop: AdminCrop) =>
+  request<AdminCrop>('/crops', { method: 'POST', body: JSON.stringify(crop) })
+export const updateAdminCrop = (id: string, crop: AdminCrop) =>
+  request<AdminCrop>(`/crops/${id}`, { method: 'PUT', body: JSON.stringify(crop) })
+export const deleteAdminCrop = (id: string) => request<{ deleted: string }>(`/crops/${id}`, { method: 'DELETE' })
+
+// ---------- 病害知识库 ----------
+
+export interface AdminDisease {
+  id?: number
+  crop: string
+  name: string
+  aliases?: string
+  symptoms?: string
+  advice?: string
+  severity?: string
+  enabled: boolean
+  sortOrder: number
+}
+
+export const fetchAdminDiseases = () => request<AdminDisease[]>('/diseases')
+export const createAdminDisease = (item: AdminDisease) =>
+  request<AdminDisease>('/diseases', { method: 'POST', body: JSON.stringify(item) })
+export const updateAdminDisease = (id: number, item: AdminDisease) =>
+  request<AdminDisease>(`/diseases/${id}`, { method: 'PUT', body: JSON.stringify(item) })
+export const deleteAdminDisease = (id: number) =>
+  request<{ deleted: number }>(`/diseases/${id}`, { method: 'DELETE' })
+
+// ---------- 地块 ----------
+
+export interface AdminPlot {
+  id: string
+  farmId: string
+  name: string
+  type: string
+  status: string
+  metric: string
+  health?: number | null
+  crop?: string | null
+  area?: string | null
+  growthStage?: string | null
+  environmentSummary?: string | null
+}
+
+export const fetchAdminPlots = (farmId = 'zhangye-01') => request<AdminPlot[]>(`/plots?farmId=${farmId}`)
+export const updateAdminPlot = (id: string, patch: Partial<AdminPlot>) =>
+  request<AdminPlot>(`/plots/${id}`, { method: 'PUT', body: JSON.stringify(patch) })

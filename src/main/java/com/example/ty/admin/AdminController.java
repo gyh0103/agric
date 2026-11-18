@@ -5,6 +5,10 @@ import com.example.ty.auth.entity.User;
 import com.example.ty.auth.exception.BizException;
 import com.example.ty.auth.repository.UserRepository;
 import com.example.ty.auth.security.AuthInterceptor;
+import com.example.ty.catalog.CropProfile;
+import com.example.ty.catalog.CropProfileRepository;
+import com.example.ty.catalog.DiseaseProfile;
+import com.example.ty.catalog.DiseaseProfileRepository;
 import com.example.ty.operations.OperationRepository;
 import com.example.ty.vision.CloudVisionService;
 import jakarta.servlet.http.HttpServletRequest;
@@ -30,7 +34,8 @@ public class AdminController {
     private static final Set<String> EDITABLE_KEYS = Set.of(
             SettingsService.VISION_BASE_URL, SettingsService.VISION_API_KEY,
             SettingsService.VISION_MODEL, SettingsService.VISION_TIMEOUT,
-            SettingsService.AGENT_BASE_URL, SettingsService.AGENT_API_KEY, SettingsService.AGENT_MODEL);
+            SettingsService.AGENT_BASE_URL, SettingsService.AGENT_API_KEY, SettingsService.AGENT_MODEL,
+            SettingsService.VISION_PROMPT, SettingsService.AGENT_PROMPT, SettingsService.VISION_MAX_EDGE);
 
     private final UserRepository users;
     private final OperationRepository operations;
@@ -38,6 +43,9 @@ public class AdminController {
     private final SettingsService settings;
     private final CloudVisionService vision;
     private final PasswordEncoder passwordEncoder;
+    private final CropProfileRepository crops;
+    private final DiseaseProfileRepository diseases;
+    private final com.example.ty.dashboard.repository.FarmAssetRepository plots;
 
     private User requireAdmin(HttpServletRequest request) {
         User current = (User) request.getAttribute(AuthInterceptor.CURRENT_USER_ATTR);
@@ -168,6 +176,9 @@ public class AdminController {
         items.add(settingItem(SettingsService.AGENT_BASE_URL, "问答模型接口地址", false, "用于智能问农，OpenAI 兼容 baseURL；留空回落到默认值"));
         items.add(settingItem(SettingsService.AGENT_API_KEY, "问答模型 API Key", true, "留空表示不修改；填写后立即生效"));
         items.add(settingItem(SettingsService.AGENT_MODEL, "问答模型名称", false, "需支持工具调用，如 qwen-plus / qwen-max / deepseek-chat"));
+        items.add(settingItem(SettingsService.VISION_PROMPT, "视觉识别提示词", false, "留空使用内置提示词；可用 {{crop}}、{{task}} 占位。JSON 输出格式会自动追加"));
+        items.add(settingItem(SettingsService.AGENT_PROMPT, "智能问农提示词", false, "留空使用内置提示词；用于设定助手角色、语气和回答边界"));
+        items.add(settingItem(SettingsService.VISION_MAX_EDGE, "图片最长边（像素）", false, "上传图片压缩后的最长边，640 ~ 2048，默认 1280"));
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("items", items);
         body.put("visionConfigured", vision.configured());
@@ -186,6 +197,114 @@ public class AdminController {
         result.put("saved", true);
         result.put("visionConfigured", vision.configured());
         return result;
+    }
+
+    // ---------- 地块（种植区 / 温室） ----------
+
+    @GetMapping("/plots")
+    public List<com.example.ty.dashboard.entity.FarmAsset> listPlots(@RequestParam(defaultValue = "zhangye-01") String farmId,
+                                                                    HttpServletRequest request) {
+        requireAdmin(request);
+        return plots.findByFarmIdOrderById(farmId).stream()
+                .filter(item -> Set.of("field", "greenhouse").contains(item.getType()))
+                .toList();
+    }
+
+    @PutMapping("/plots/{id}")
+    public com.example.ty.dashboard.entity.FarmAsset updatePlot(@PathVariable String id,
+                                                                @RequestBody Map<String, Object> body,
+                                                                HttpServletRequest request) {
+        requireAdmin(request);
+        com.example.ty.dashboard.entity.FarmAsset plot = plots.findById(id)
+                .orElseThrow(() -> BizException.notFound("地块不存在"));
+        if (!Set.of("field", "greenhouse").contains(plot.getType()))
+            throw BizException.badRequest("该资产不是地块");
+        if (body.get("name") != null) plot.setName(String.valueOf(body.get("name")).trim());
+        if (body.get("crop") != null) plot.setCrop(String.valueOf(body.get("crop")).trim());
+        if (body.get("area") != null) plot.setArea(String.valueOf(body.get("area")).trim());
+        if (body.get("growthStage") != null) plot.setGrowthStage(String.valueOf(body.get("growthStage")).trim());
+        if (body.get("environmentSummary") != null)
+            plot.setEnvironmentSummary(String.valueOf(body.get("environmentSummary")).trim());
+        if (body.get("health") instanceof Number number)
+            plot.setHealth(Math.max(0, Math.min(100, number.intValue())));
+        return plots.save(plot);
+    }
+
+    // ---------- 作物档案 ----------
+
+    @GetMapping("/crops")
+    public List<CropProfile> listCrops(HttpServletRequest request) {
+        requireAdmin(request);
+        return crops.findAllByOrderBySortOrderAscNameAsc();
+    }
+
+    @PostMapping("/crops")
+    public CropProfile createCrop(@RequestBody CropProfile body, HttpServletRequest request) {
+        requireAdmin(request);
+        if (body.getId() == null || body.getId().isBlank())
+            throw BizException.badRequest("请填写作物编号");
+        if (crops.existsById(body.getId())) throw BizException.badRequest("作物编号已存在");
+        return crops.save(normalize(body));
+    }
+
+    @PutMapping("/crops/{id}")
+    public CropProfile updateCrop(@PathVariable String id, @RequestBody CropProfile body, HttpServletRequest request) {
+        requireAdmin(request);
+        if (!crops.existsById(id)) throw BizException.notFound("作物不存在");
+        body.setId(id);
+        return crops.save(normalize(body));
+    }
+
+    @DeleteMapping("/crops/{id}")
+    public Map<String, Object> deleteCrop(@PathVariable String id, HttpServletRequest request) {
+        requireAdmin(request);
+        crops.deleteById(id);
+        return Map.of("deleted", id);
+    }
+
+    private static CropProfile normalize(CropProfile body) {
+        if (body.getName() == null || body.getName().isBlank()) throw BizException.badRequest("请填写作物名称");
+        if (body.getEnabled() == null) body.setEnabled(true);
+        if (body.getSortOrder() == null) body.setSortOrder(0);
+        return body;
+    }
+
+    // ---------- 病害知识库 ----------
+
+    @GetMapping("/diseases")
+    public List<DiseaseProfile> listDiseases(HttpServletRequest request) {
+        requireAdmin(request);
+        return diseases.findAllByOrderByCropAscSortOrderAsc();
+    }
+
+    @PostMapping("/diseases")
+    public DiseaseProfile createDisease(@RequestBody DiseaseProfile body, HttpServletRequest request) {
+        requireAdmin(request);
+        body.setId(null);
+        return diseases.save(normalize(body));
+    }
+
+    @PutMapping("/diseases/{id}")
+    public DiseaseProfile updateDisease(@PathVariable Long id, @RequestBody DiseaseProfile body, HttpServletRequest request) {
+        requireAdmin(request);
+        if (!diseases.existsById(id)) throw BizException.notFound("病害条目不存在");
+        body.setId(id);
+        return diseases.save(normalize(body));
+    }
+
+    @DeleteMapping("/diseases/{id}")
+    public Map<String, Object> deleteDisease(@PathVariable Long id, HttpServletRequest request) {
+        requireAdmin(request);
+        diseases.deleteById(id);
+        return Map.of("deleted", id);
+    }
+
+    private static DiseaseProfile normalize(DiseaseProfile body) {
+        if (body.getCrop() == null || body.getCrop().isBlank()) throw BizException.badRequest("请填写作物");
+        if (body.getName() == null || body.getName().isBlank()) throw BizException.badRequest("请填写病害名称");
+        if (body.getEnabled() == null) body.setEnabled(true);
+        if (body.getSortOrder() == null) body.setSortOrder(0);
+        return body;
     }
 
     private Map<String, Object> settingItem(String key, String label, boolean secret, String hint) {

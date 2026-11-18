@@ -21,6 +21,9 @@ public class SettingsService {
     public static final String AGENT_BASE_URL = "agent.base-url";
     public static final String AGENT_API_KEY = "agent.api-key";
     public static final String AGENT_MODEL = "agent.model";
+    public static final String VISION_PROMPT = "vision.prompt";
+    public static final String AGENT_PROMPT = "agent.prompt";
+    public static final String VISION_MAX_EDGE = "vision.cloud.max-edge";
 
     private final AppSettingRepository repo;
 
@@ -38,6 +41,12 @@ public class SettingsService {
     private String defaultAgentApiKey;
     @Value("${agent.model:qwen-plus}")
     private String defaultAgentModel;
+    @Value("${VISION_PROMPT:}")
+    private String defaultVisionPrompt;
+    @Value("${AGENT_PROMPT:}")
+    private String defaultAgentPrompt;
+    @Value("${VISION_CLOUD_MAX_EDGE:1280}")
+    private String defaultVisionMaxEdge;
 
     /** 环境变量（或内置默认）值，作为数据库未覆盖时的兜底 */
     public String envDefault(String key) {
@@ -49,6 +58,9 @@ public class SettingsService {
             case AGENT_BASE_URL -> defaultAgentBaseUrl;
             case AGENT_API_KEY -> defaultAgentApiKey;
             case AGENT_MODEL -> defaultAgentModel;
+            case VISION_PROMPT -> defaultVisionPrompt;
+            case AGENT_PROMPT -> defaultAgentPrompt;
+            case VISION_MAX_EDGE -> defaultVisionMaxEdge;
             default -> "";
         };
     }

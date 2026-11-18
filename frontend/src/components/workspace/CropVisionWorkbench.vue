@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import {computed,ref,watch,onBeforeUnmount} from 'vue'
+import {computed,ref,watch,onMounted,onBeforeUnmount} from 'vue'
 import {useRouter} from 'vue-router'
 import pearSample from '@/assets/postharvest/pear-leaf-example.jpg'
 import {getToken} from '@/api/auth'
 import {visionGet,visionUpload,type VisionRecord} from '@/api/vision'
+import {fetchCatalogCrops,matchCropProfile,parseVisionTasks,type CropProfile} from '@/api/catalog'
 import PearCameraInput from './PearCameraInput.vue'
 const props=defineProps<{farmId:string;selectedId:string|null;plots:{entityId:string;crop:string}[];names:Record<string,string>;embedded?:boolean}>()
 const emit=defineEmits<{(e:'ask',question:string):void;(e:'close'):void}>()
@@ -11,7 +12,10 @@ const router=useRouter(),plot=ref(props.selectedId||props.plots[0]?.entityId||''
 let generation=0,controller:AbortController|undefined
 const crop=computed(()=>{const c=props.plots.find(p=>p.entityId===plot.value)?.crop||'';return c.includes('梨')?'pear':c.includes('枣')?'jujube':c.includes('麦')?'wheat':c.includes('番茄')?'tomato':'vegetable'})
 const cropName=computed(()=>props.plots.find(p=>p.entityId===plot.value)?.crop||'未选择作物')
-const taskOptions=computed(()=>crop.value==='tomato'?[{id:'leaf',label:'番茄叶片症状'},{id:'fruit_ripeness',label:'番茄成熟度'}]:crop.value==='wheat'?[{id:'leaf',label:'叶片症状'},{id:'canopy',label:'冠层水分表型'},{id:'head',label:'麦穗检测'}]:crop.value==='jujube'?[{id:'leaf',label:'叶片症状'},{id:'fruit_bruise',label:'果实损伤'},{id:'fruit_freshness',label:'果实新鲜度'}]:[{id:'leaf',label:'叶片症状'}])
+const catalog=ref<CropProfile[]>([])
+const profile=computed(()=>matchCropProfile(catalog.value,cropName.value))
+onMounted(async()=>{try{catalog.value=await fetchCatalogCrops()}catch{/* 字典不可用时回落到内置选项 */}})
+const taskOptions=computed(()=>{const fromCatalog=parseVisionTasks(profile.value?.visionTasks);if(fromCatalog.length)return fromCatalog;return crop.value==='tomato'?[{id:'leaf',label:'番茄叶片症状'},{id:'fruit_ripeness',label:'番茄成熟度'}]:crop.value==='wheat'?[{id:'leaf',label:'叶片症状'},{id:'canopy',label:'冠层水分表型'},{id:'head',label:'麦穗检测'}]:crop.value==='jujube'?[{id:'leaf',label:'叶片症状'},{id:'fruit_bruise',label:'果实损伤'},{id:'fruit_freshness',label:'果实新鲜度'}]:[{id:'leaf',label:'叶片症状'}]})
 const weight=computed(()=>crop.value==='tomato'?(task.value==='leaf'?'tomato_leaf_yolo11n_cls_v1':'tomato_ripeness_yolo11n_cls_v1'):crop.value==='pear'?'pear_symptom_yolo11n_cls_v1':crop.value==='wheat'?({leaf:'wheat_leaf_yolo11n_cls_v1',canopy:'wheat_water_stress_yolo11n_cls_v1',head:'wheat_head_yolo11n_v1'} as Record<string,string>)[task.value]:crop.value==='jujube'?'jujube_'+task.value+'_yolo11n_cls_v1':'尚无已上线权重')
 const observation=computed(()=>{const r=result.value;if(!r)return null;if(r.label!=null)return {code:r.code||'',label:r.label,score:r.confidence||0};if(crop.value==='pear')return {code:r.vision.symptom,label:r.vision.symptom_cn,score:r.vision.confidence};if(crop.value==='tomato')return {code:r.class,label:({healthy:'健康',bacterial_spot:'细菌性斑点',leaf_miner:'潜叶虫',powdery_mildew:'白粉症状',whitefly:'粉虱',green:'青熟',breakers:'破色',turning:'转色',pink:'粉红',light_red:'浅红',red:'红熟'} as Record<string,string>)[r.class]||r.class,score:r.confidence};if(crop.value==='jujube')return {code:r.prediction.class,label:r.prediction.label_zh,score:r.prediction.confidence};const v=r.visual_observations?.[task.value];return v?{code:v.class,label:v.label_zh||'麦穗检测',score:v.score??v.visual_score??v.mean_confidence,count:v.wheat_head_count}:null})
 const pearDetections=computed(()=>crop.value==='pear'?(result.value?.detections||[]):[])
@@ -21,7 +25,7 @@ const matches=computed(()=>{if(!observation.value)return [];const keys=terms[obs
 const question=computed(()=>observation.value?`${cropName.value}在${props.names[plot.value]}的${taskOptions.value.find(t=>t.id===task.value)?.label}识别出现“${observation.value.label}”。请结合河西走廊的气候与水肥条件，分析可能成因、鉴别要点和处置建议，并说明还需要补充哪些观察；不要把图片识别结果当作确诊。`:'')
 async function request(path:string,body?:FormData){const r=await fetch('/api/multicrop/'+path,{method:body?'POST':'GET',headers:{Authorization:'Bearer '+getToken()},body,signal:controller?.signal});const data=await r.json();if(!r.ok)throw Error(data.message||data.error||data.detail||'识别服务不可用');return data}
 function clear(){generation++;controller?.abort();controller=undefined;busy.value=false;result.value=undefined;graph.value=undefined;error.value='';graphError.value='';if(preview.value)URL.revokeObjectURL(preview.value);preview.value=''}
-watch(()=>[plot.value,task.value],clear);watch(crop,()=>{task.value='leaf'});watch(()=>props.selectedId,id=>{if(id)plot.value=id})
+watch(()=>[plot.value,task.value],clear);watch(crop,()=>{task.value='leaf'});watch(taskOptions,tasks=>{if(tasks.length&&!tasks.some(t=>t.id===task.value))task.value=tasks[0].id});watch(()=>props.selectedId,id=>{if(id)plot.value=id})
 async function infer(file:File){if(busy.value)return;if(file.size>8*1024*1024){error.value='图片不能超过 8 MB';return}clear();const current=generation;controller=new AbortController();busy.value=true;preview.value=URL.createObjectURL(file);const c=crop.value,t=task.value;try{const body=new FormData();body.append('file',file,file.name);body.append('crop',cropName.value);body.append('task',t);const r=await fetch('/api/vision/analyze',{method:'POST',headers:{Authorization:'Bearer '+getToken()},body,signal:controller?.signal});const data=await r.json().catch(()=>({}));if(!r.ok)throw Error(data.message||data.error||'识别服务不可用');if(current!==generation)return;result.value=data}catch(e){if(current===generation)error.value=(e as Error).message}finally{if(current===generation)busy.value=false}}
 async function sample(){if(busy.value)return;try{const r=await fetch(pearSample);if(!r.ok)throw Error('示范图片读取失败');await infer(new File([await r.blob()],'公开鸭梨叶片示范.jpg',{type:'image/jpeg'}))}catch(e){error.value=(e as Error).message}}
 function upload(e:Event){const f=(e.target as HTMLInputElement).files?.[0];if(f)infer(f);(e.target as HTMLInputElement).value=''}
