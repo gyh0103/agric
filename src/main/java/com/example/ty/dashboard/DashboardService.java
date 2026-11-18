@@ -33,6 +33,7 @@ public class DashboardService {
     private final ObjectMapper objectMapper;
     private final ObservationRepository observations;
     private final com.example.ty.operations.OperationService operations;
+    private final com.example.ty.admin.SettingsService settings;
 
     @Transactional(readOnly = true)
     public ObservationHistory observationHistory(String farmId,String metricKey) {
@@ -336,6 +337,7 @@ public class DashboardService {
     @Scheduled(initialDelay = 15_000, fixedDelay = 30_000)
     @Transactional
     public void generateVirtualReadings() {
+        if (!settings.getBoolean(com.example.ty.admin.SettingsService.SENSOR_SIMULATED, true)) return;
         LocalDateTime now = LocalDateTime.now();
         for (EnvironmentMetric metric : metrics.findAll()) {
             metric.setPreviousValue(metric.getValue());

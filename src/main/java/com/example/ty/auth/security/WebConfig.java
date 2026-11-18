@@ -14,7 +14,12 @@ public class WebConfig implements WebMvcConfigurer {
 
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
-        registry.addInterceptor(authInterceptor).addPathPatterns("/api/**");
+        registry.addInterceptor(authInterceptor)
+                .addPathPatterns("/api/**")
+                .excludePathPatterns(
+                        "/api/auth/**",
+                        "/api/sensor/ingest"   // 传感器网关专用，用独立 secret 校验，不走 JWT
+                );
     }
 
     @Override

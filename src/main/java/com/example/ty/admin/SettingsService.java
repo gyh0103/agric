@@ -24,6 +24,8 @@ public class SettingsService {
     public static final String VISION_PROMPT = "vision.prompt";
     public static final String AGENT_PROMPT = "agent.prompt";
     public static final String VISION_MAX_EDGE = "vision.cloud.max-edge";
+    public static final String SENSOR_SIMULATED = "sensor.simulated";
+    public static final String SENSOR_INGEST_SECRET = "sensor.ingest-secret";
 
     private final AppSettingRepository repo;
 
@@ -47,6 +49,10 @@ public class SettingsService {
     private String defaultAgentPrompt;
     @Value("${VISION_CLOUD_MAX_EDGE:1280}")
     private String defaultVisionMaxEdge;
+    @Value("${SENSOR_SIMULATED:true}")
+    private String defaultSensorSimulated;
+    @Value("${SENSOR_INGEST_SECRET:}")
+    private String defaultSensorIngestSecret;
 
     /** 环境变量（或内置默认）值，作为数据库未覆盖时的兜底 */
     public String envDefault(String key) {
@@ -61,6 +67,8 @@ public class SettingsService {
             case VISION_PROMPT -> defaultVisionPrompt;
             case AGENT_PROMPT -> defaultAgentPrompt;
             case VISION_MAX_EDGE -> defaultVisionMaxEdge;
+            case SENSOR_SIMULATED -> defaultSensorSimulated;
+            case SENSOR_INGEST_SECRET -> defaultSensorIngestSecret;
             default -> "";
         };
     }
@@ -74,6 +82,16 @@ public class SettingsService {
                 .map(AppSetting::getValue)
                 .filter(value -> value != null && !value.isBlank())
                 .orElse(fallback);
+    }
+
+    public boolean getBoolean(String key, boolean fallback) {
+        String v = get(key);
+        if (v == null || v.isBlank()) return fallback;
+        return switch (v.trim().toLowerCase()) {
+            case "true", "1", "yes", "on", "enabled" -> true;
+            case "false", "0", "no", "off", "disabled" -> false;
+            default -> fallback;
+        };
     }
 
     public boolean isOverridden(String key) {

@@ -35,7 +35,8 @@ public class AdminController {
             SettingsService.VISION_BASE_URL, SettingsService.VISION_API_KEY,
             SettingsService.VISION_MODEL, SettingsService.VISION_TIMEOUT,
             SettingsService.AGENT_BASE_URL, SettingsService.AGENT_API_KEY, SettingsService.AGENT_MODEL,
-            SettingsService.VISION_PROMPT, SettingsService.AGENT_PROMPT, SettingsService.VISION_MAX_EDGE);
+            SettingsService.VISION_PROMPT, SettingsService.AGENT_PROMPT, SettingsService.VISION_MAX_EDGE,
+            SettingsService.SENSOR_SIMULATED, SettingsService.SENSOR_INGEST_SECRET);
 
     private final UserRepository users;
     private final OperationRepository operations;
@@ -179,6 +180,8 @@ public class AdminController {
         items.add(settingItem(SettingsService.VISION_PROMPT, "视觉识别提示词", false, "留空使用内置提示词；可用 {{crop}}、{{task}} 占位。JSON 输出格式会自动追加"));
         items.add(settingItem(SettingsService.AGENT_PROMPT, "智能问农提示词", false, "留空使用内置提示词；用于设定助手角色、语气和回答边界"));
         items.add(settingItem(SettingsService.VISION_MAX_EDGE, "图片最长边（像素）", false, "上传图片压缩后的最长边，640 ~ 2048，默认 1280"));
+        items.add(settingItem(SettingsService.SENSOR_SIMULATED, "开启模拟传感器", false, "true = 每 30 秒自动生成模拟读数（默认）；false = 等待真实传感器 /api/sensor/ingest 上报。立即生效，无需重启"));
+        items.add(settingItem(SettingsService.SENSOR_INGEST_SECRET, "传感器上报密钥", true, "留空表示不校验；填写后，/api/sensor/ingest 请求必须在 JSON 里带上 \"secret\" 字段。立即生效"));
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("items", items);
         body.put("visionConfigured", vision.configured());
