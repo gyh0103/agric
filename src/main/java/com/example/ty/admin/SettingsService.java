@@ -18,6 +18,9 @@ public class SettingsService {
     public static final String VISION_API_KEY = "vision.cloud.api-key";
     public static final String VISION_MODEL = "vision.cloud.model";
     public static final String VISION_TIMEOUT = "vision.cloud.timeout-seconds";
+    public static final String AGENT_BASE_URL = "agent.base-url";
+    public static final String AGENT_API_KEY = "agent.api-key";
+    public static final String AGENT_MODEL = "agent.model";
 
     private final AppSettingRepository repo;
 
@@ -29,6 +32,12 @@ public class SettingsService {
     private String defaultVisionModel;
     @Value("${VISION_CLOUD_TIMEOUT_SECONDS:60}")
     private String defaultVisionTimeout;
+    @Value("${agent.base-url:https://dashscope.aliyuncs.com/compatible-mode/v1}")
+    private String defaultAgentBaseUrl;
+    @Value("${agent.api-key:}")
+    private String defaultAgentApiKey;
+    @Value("${agent.model:qwen-plus}")
+    private String defaultAgentModel;
 
     /** 环境变量（或内置默认）值，作为数据库未覆盖时的兜底 */
     public String envDefault(String key) {
@@ -37,6 +46,9 @@ public class SettingsService {
             case VISION_API_KEY -> defaultVisionApiKey;
             case VISION_MODEL -> defaultVisionModel;
             case VISION_TIMEOUT -> defaultVisionTimeout;
+            case AGENT_BASE_URL -> defaultAgentBaseUrl;
+            case AGENT_API_KEY -> defaultAgentApiKey;
+            case AGENT_MODEL -> defaultAgentModel;
             default -> "";
         };
     }

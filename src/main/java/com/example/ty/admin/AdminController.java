@@ -29,7 +29,8 @@ public class AdminController {
 
     private static final Set<String> EDITABLE_KEYS = Set.of(
             SettingsService.VISION_BASE_URL, SettingsService.VISION_API_KEY,
-            SettingsService.VISION_MODEL, SettingsService.VISION_TIMEOUT);
+            SettingsService.VISION_MODEL, SettingsService.VISION_TIMEOUT,
+            SettingsService.AGENT_BASE_URL, SettingsService.AGENT_API_KEY, SettingsService.AGENT_MODEL);
 
     private final UserRepository users;
     private final OperationRepository operations;
@@ -164,6 +165,9 @@ public class AdminController {
         items.add(settingItem(SettingsService.VISION_API_KEY, "API Key", true, "留空表示不修改；填写后立即生效"));
         items.add(settingItem(SettingsService.VISION_MODEL, "模型名称", false, "如 qwen-vl-plus / glm-4v-flash / 火山 Endpoint ID"));
         items.add(settingItem(SettingsService.VISION_TIMEOUT, "超时（秒）", false, "10 ~ 300"));
+        items.add(settingItem(SettingsService.AGENT_BASE_URL, "问答模型接口地址", false, "用于智能问农，OpenAI 兼容 baseURL；留空回落到默认值"));
+        items.add(settingItem(SettingsService.AGENT_API_KEY, "问答模型 API Key", true, "留空表示不修改；填写后立即生效"));
+        items.add(settingItem(SettingsService.AGENT_MODEL, "问答模型名称", false, "需支持工具调用，如 qwen-plus / qwen-max / deepseek-chat"));
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("items", items);
         body.put("visionConfigured", vision.configured());

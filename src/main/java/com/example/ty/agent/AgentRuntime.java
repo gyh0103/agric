@@ -112,6 +112,6 @@ public class AgentRuntime {
             }
             throw new IllegalStateException("达到工具执行轮次上限，已保留执行记录");
         } catch(InterruptedException e) { Thread.currentThread().interrupt();store.transition(run.getId(),"FAILED",null,"任务执行被中断"); }
-        catch(Exception e) { store.transition(run.getId(),"FAILED",null,e instanceof IllegalStateException?e.getMessage():"无法连接本地模型，请启动 Ollama 并检查 AGENT_BASE_URL"); }
+        catch(Exception e) { store.transition(run.getId(),"FAILED",null,e instanceof IllegalStateException?e.getMessage():"无法完成问答：请检查后台「系统配置」中的问答模型接口地址、API Key 与模型名称"); }
     }
 }
