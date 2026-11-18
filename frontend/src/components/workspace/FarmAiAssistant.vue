@@ -39,7 +39,7 @@ async function ask(question?: string) {
   controller = new AbortController()
   try {
     const signal = controller.signal
-    let run = await createRun(content,props.farmId || 'yantian-01')
+    let run = await createRun(content,props.farmId || 'zhangye-01')
     while (['QUEUED', 'RUNNING'].includes(run.status)) {
       if (signal.aborted) { await cancelRun(run.id); throw new DOMException('任务已取消', 'AbortError') }
       await new Promise(resolve => window.setTimeout(resolve, 1200))

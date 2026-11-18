@@ -13,7 +13,7 @@ public class AgentController {
     private final AgentStore store;
     public record TaskRequest(String question,String farmId) {}
     @PostMapping("/runs") @ResponseStatus(HttpStatus.ACCEPTED)
-    public AgentRun create(@RequestAttribute(AuthInterceptor.CURRENT_USER_ATTR) User user,@RequestBody TaskRequest request) { return runtime.create(user.getId(),request.question(),request.farmId()==null?"yantian-01":request.farmId()); }
+    public AgentRun create(@RequestAttribute(AuthInterceptor.CURRENT_USER_ATTR) User user,@RequestBody TaskRequest request) { return runtime.create(user.getId(),request.question(),request.farmId()==null?"zhangye-01":request.farmId()); }
     @GetMapping("/runs") public List<AgentRun> list(@RequestAttribute(AuthInterceptor.CURRENT_USER_ATTR) User user) { return store.list(user.getId()); }
     @GetMapping("/runs/{id}") public AgentRun get(@RequestAttribute(AuthInterceptor.CURRENT_USER_ATTR) User user,@PathVariable String id) { return store.owned(id,user.getId()); }
     @GetMapping("/runs/{id}/events") public List<AgentEvent> events(@RequestAttribute(AuthInterceptor.CURRENT_USER_ATTR) User user,@PathVariable String id,@RequestParam(defaultValue="0") long after_seq) { return store.events(id,user.getId(),Math.max(0,after_seq)); }

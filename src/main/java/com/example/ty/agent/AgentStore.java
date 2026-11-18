@@ -15,7 +15,7 @@ public class AgentStore {
     private final ObjectMapper json;
     private final TransactionTemplate transactions;
     public synchronized AgentRun create(Long userId,String question,String model) {
-        return create(userId,question,model,"yantian-01");
+        return create(userId,question,model,"zhangye-01");
     }
     public synchronized AgentRun create(Long userId,String question,String model,String farmId) {return create(userId,question,model,farmId,null);}
     public synchronized AgentRun create(Long userId,String question,String model,String farmId,String parentRunId) {

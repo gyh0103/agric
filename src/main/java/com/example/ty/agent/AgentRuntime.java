@@ -31,11 +31,11 @@ public class AgentRuntime {
     @EventListener(ApplicationReadyEvent.class) public void ready() { store.recoverInterrupted(); }
     @PreDestroy public void close() { executor.shutdownNow(); }
     public AgentRun create(Long owner,String question) {
-        return create(owner,question,"yantian-01");
+        return create(owner,question,"zhangye-01");
     }
     public AgentRun create(Long owner,String question,String farmId) {return launch(owner,question,farmId,null);}
     private AgentRun launch(Long owner,String question,String farmId,String parentRunId) {
-        if(!Set.of("yantian-01","farm-01").contains(farmId))throw BizException.badRequest("当前仅支持已配置的共享演示基地");
+        if(!Set.of("zhangye-01").contains(farmId))throw BizException.badRequest("当前仅支持已配置的共享演示基地");
         if(question==null || question.isBlank() || question.length()>2000) throw BizException.badRequest("请输入 1–2000 字符的任务");
         if(!slots.tryAcquire()) throw new BizException("AGENT_BUSY","任务队列已满，请稍后重试",429);
         AgentRun run;

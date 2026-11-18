@@ -27,7 +27,7 @@ public class TransportService {
  public static class Obstacle {public String id;public double x,y,radius=12;public boolean moving;public double direction=1;public String road;public double offset;}
  public static class State {public int mapVersion;public String farmId;public List<Stop> stops=new ArrayList<>();public List<Road> roads=new ArrayList<>();public List<Task> tasks=new ArrayList<>();public List<Stock> inventory=new ArrayList<>();public List<Entry> ledger=new ArrayList<>();public List<Obstacle> obstacles=new ArrayList<>();public Point vehicle=new Point(1362,434);public double heading,speed,battery=100;public boolean emergency;public long lastTick;public String algorithm="道路图 A* + DWA 速度采样/预测碰撞 + 全车包络检查";public boolean simulated=true;}
  public record Create(String source,String destination,String goods,double quantity,String unit,boolean automatic){public Create(String source,String destination,String goods,double quantity,String unit){this(source,destination,goods,quantity,unit,false);}}
- private String farm(String id){if(!"hexizao-01".equals(id))throw BizException.badRequest("运输演示仅支持绿洲基地");return id;}
+ private String farm(String id){if(!"hexizao-01".equals(id)&&!"zhangye-01".equals(id))throw BizException.badRequest("运输演示仅支持绿洲基地");return id;}
  private State read(String farm){
   farm(farm);State s=repository.findById(farm).map(e->json.readValue(e.getPayload(),State.class)).orElseGet(()->initial(farm));
   s.stops.stream().filter(n->n.id.equals("pear2")).forEach(n->n.name="番茄大棚装卸点");

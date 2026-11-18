@@ -1,7 +1,7 @@
 import { clearAuth, getToken } from './auth'
 import type { DashboardSnapshot, DeviceInput, DeviceRecord, FarmZone, GreenhouseDetail, IrrigationUnit, MetricThreshold, ZoneInput } from '@/types'
 
-let activeFarmId = 'yantian-01'
+let activeFarmId = 'zhangye-01'
 export function setActiveFarm(farmId:string) { activeFarmId=farmId }
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const response = await fetch(`/api${path}`, {

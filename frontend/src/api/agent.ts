@@ -11,7 +11,7 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 export const listRuns = () => request<AgentRun[]>('/runs')
 export const getRun = (id: string) => request<AgentRun>(`/runs/${encodeURIComponent(id)}`)
 export const getEvents = (id: string, seq = 0) => request<AgentEvent[]>(`/runs/${encodeURIComponent(id)}/events?after_seq=${seq}`)
-export const createRun = (question: string, farmId = 'yantian-01') => request<AgentRun>('/runs', { method: 'POST', body: JSON.stringify({ question, farmId }) })
+export const createRun = (question: string, farmId = 'zhangye-01') => request<AgentRun>('/runs', { method: 'POST', body: JSON.stringify({ question, farmId }) })
 export const cancelRun = (id: string) => request<AgentRun>(`/runs/${encodeURIComponent(id)}/cancel`, { method: 'POST' })
 
 export const retryRun = (id:string) => request<AgentRun>(`/runs/${encodeURIComponent(id)}/retry`,{method:'POST'})

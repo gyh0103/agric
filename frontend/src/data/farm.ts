@@ -85,7 +85,7 @@ export function applyDashboard(snapshot: DashboardSnapshot) {
   alerts.splice(0, alerts.length, ...snapshot.alerts)
   Object.assign(dashboardSummary, snapshot.summary)
   const monitoring = dockModules.find(item=>item.key==='monitoring')
-  if(monitoring) monitoring.badge = snapshot.farmId === 'yantian-01' ? undefined : 3
+  if(monitoring) monitoring.badge = snapshot.farmId === 'zhangye-01' ? undefined : 3
   const overview = dockModules.find(item => item.key === 'overview')
   if (overview) {
     overview.subLayers.find(item => item.key === 'health')!.value = String(snapshot.summary.health)

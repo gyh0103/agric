@@ -14,7 +14,7 @@ const mode = ref<'real' | 'twin'>(route.params.greenhouseId === 'yt-pear-02' ? '
 const activePanel = ref<'overview' | 'devices' | 'plants'>('overview')
 const realVideo = ref<HTMLVideoElement>(); const videoState = ref<'loading' | 'playing' | 'paused' | 'error'>('loading')
 let timer = 0
-const farmId = computed(() => String(route.params.id || 'farm-01'))
+const farmId = computed(() => String(route.params.id || 'zhangye-01'))
 const greenhouseId = computed(() => String(route.params.greenhouseId || 'gh-01'))
 const selectedPlant = computed(() => detail.value?.plants.find(item => item.id === selectedPlantId.value))
 const onlineDevices = computed(() => detail.value?.devices.filter(item => item.online).length || 0)

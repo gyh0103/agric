@@ -33,7 +33,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     if (module === 'alerts') selectEntity(snapshot.value?.zones[0]?.entityId || 'yt-pear-03')
   }
 
-  async function loadDashboard(force = false, farmId = 'yantian-01') {
+  async function loadDashboard(force = false, farmId = 'zhangye-01') {
     if (loading.value || (lastSyncedAt.value && snapshot.value?.farmId === farmId && !force)) return
     loading.value = true
     loadError.value = ''

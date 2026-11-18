@@ -45,7 +45,7 @@ onBeforeUnmount(()=>{window.clearInterval(clockTimer);layoutObserver?.disconnect
   <header class="topbar" :class="{ dark }">
     <div class="left">
       <BrandLogo :inverse="dark" />
-      <select class="farm-select" aria-label="选择示范基地" :value="legacy ? 'farm-01' : 'yantian-01'" @change="emit('farm', ($event.target as HTMLSelectElement).value)"><option value="yantian-01">沧州盐碱地示范基地</option><option value="farm-01">原温室演示园</option></select><button class="multi-entry" @click="router.push('/multicrop')">多作物研判</button>
+      <select class="farm-select" aria-label="选择示范基地" :value="legacy ? 'legacy-farm-01' : 'zhangye-01'" @change="emit('farm', ($event.target as HTMLSelectElement).value)"><option value="zhangye-01">张掖·河西走廊示范基地</option><option value="legacy-farm-01">经典视图（演示）</option></select><button class="multi-entry" @click="router.push('/multicrop')">多作物研判</button>
     </div>
     <div class="right">
       <form ref="searchForm" class="search" :style="{width:searchWidth+'px',visibility:searchWidth?'visible':'hidden'}" @submit.prevent="onSearch">

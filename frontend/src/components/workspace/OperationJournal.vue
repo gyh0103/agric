@@ -10,7 +10,7 @@ const recordKind=ref('AGRONOMY'),title=ref(''),detail=ref(''),quantity=ref(100),
 const labels:Record<string,string>={AGRONOMY:'农事记录',GROWTH:'生长记录',BATCH:'采后批次',BATCH_EVENT:'批次流转',DEVICE_RECEIPT:'设施回执',IRRIGATION_RECEIPT:'灌排回执',ALERT_RECEIPT:'告警处置'}
 const stages:Record<string,string>={RECORDED:'已登记',COMPLETED:'已完成',HARVESTED:'已采收',SORTED:'已分选',STORED:'已入库',DISPATCHED:'已出库'}
 const next:Record<string,string>={HARVESTED:'SORTED',SORTED:'STORED',STORED:'DISPATCHED'}
-const farmId=computed(()=>store.snapshot?.farmId||'yantian-01')
+const farmId=computed(()=>store.snapshot?.farmId||'zhangye-01')
 const plots=computed(()=>store.snapshot?.zones||[])
 const visible=computed(()=>rows.value.filter(r=>props.kind==='crops'?['AGRONOMY','GROWTH','BATCH'].includes(r.kind):r.kind===({devices:'DEVICE_RECEIPT',irrigation:'IRRIGATION_RECEIPT',alerts:'ALERT_RECEIPT'} as Record<string,string>)[props.kind]).filter(r=>filter.value==='all'||r.entityId===filter.value).filter(r=>`${r.title} ${r.detail} ${r.id}`.includes(query.value.trim())))
 const entityName=(id:string)=>store.snapshot?.entities.find(e=>e.id===id)?.name || '未关联地块'

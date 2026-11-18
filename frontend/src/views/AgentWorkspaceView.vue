@@ -59,7 +59,7 @@ async function poll(version: number) {
 async function submit() {
   if (!question.value.trim() || submitting.value || busy.value) return
   submitting.value = true; error.value = ''
-  try { const run = followupMode.value&&active.value ? await followupRun(active.value.id,question.value.trim()) : await createRun(question.value.trim(), route.query.farmId === 'farm-01' ? 'farm-01' : 'yantian-01'); question.value = ''; await refreshList(); await select(run) }
+  try { const run = followupMode.value&&active.value ? await followupRun(active.value.id,question.value.trim()) : await createRun(question.value.trim(), 'zhangye-01'); question.value = ''; await refreshList(); await select(run) }
   catch (e) { error.value = e instanceof Error ? e.message : '无法创建任务' }
   finally { submitting.value = false }
 }
@@ -81,7 +81,7 @@ onMounted(() => window.addEventListener('resize', resizeWindow))
 onBeforeUnmount(() => window.removeEventListener('resize', resizeWindow))
 const theme = ref(localStorage.getItem('agric-agent-theme') || 'light')
 const user = getUser()
-const activeFarmLabel = computed(() => (active.value?.farmId || route.query.farmId) === 'farm-01' ? '原温室演示园' : '沧州盐碱地示范基地')
+const activeFarmLabel = computed(() => '张掖·河西走廊示范基地')
 const inputElement = ref<HTMLTextAreaElement>()
 const settingsDialog = ref<HTMLElement>()
 let previousFocus: HTMLElement | null = null
@@ -126,7 +126,7 @@ const panelOpen = ref(false), panelReady = ref(false), panelSaving = ref(false),
 const { ensureProjectWorkbench, workbenches, activeWorkbenchId, activeWorkbench, replaceWorkbenches, selectWorkbench, createWorkbench, addWidget, removeWidget, updateWidget, moveWidget, renameActiveWorkbench, duplicateActiveWorkbench, deleteActiveWorkbench, clearActiveWorkbench, toggleActivePinned } = useAssistantWorkbenches()
 let saveTimer: number | undefined, panelRefreshTimer: number | undefined
 onMounted(async () => {
-  try { const state = await fetchAssistantState(); const saved = JSON.parse(state.workbenchesJson || '[]'); if (state.updatedAt || saved.length) replaceWorkbenches(saved); applyDashboard(await fetchDashboard('yantian-01')); panelReady.value = true; ensureProjectWorkbench() }
+  try { const state = await fetchAssistantState(); const saved = JSON.parse(state.workbenchesJson || '[]'); if (state.updatedAt || saved.length) replaceWorkbenches(saved); applyDashboard(await fetchDashboard('zhangye-01')); panelReady.value = true; ensureProjectWorkbench() }
   catch(e) { panelError.value = e instanceof Error ? e.message : '工作面板加载失败' }
 })
 watch(workbenches, () => {
@@ -140,7 +140,7 @@ watch(workbenches, () => {
   }, 650)
 }, { deep: true })
 watch(panelOpen, async open => { if(open){ previousFocus = document.activeElement as HTMLElement; await nextTick(); panelDialog.value?.querySelector<HTMLButtonElement>('button')?.focus() } else if(previousFocus?.isConnected) previousFocus.focus() })
-watch(panelOpen, open => { window.clearInterval(panelRefreshTimer); if(open) { const refresh = async () => { try { applyDashboard(await fetchDashboard('yantian-01')) } catch(e) { panelError.value = e instanceof Error ? e.message : '数据刷新失败' } }; void refresh(); panelRefreshTimer = window.setInterval(refresh, 30000) } })
+watch(panelOpen, open => { window.clearInterval(panelRefreshTimer); if(open) { const refresh = async () => { try { applyDashboard(await fetchDashboard('zhangye-01')) } catch(e) { panelError.value = e instanceof Error ? e.message : '数据刷新失败' } }; void refresh(); panelRefreshTimer = window.setInterval(refresh, 30000) } })
 onBeforeUnmount(() => window.clearInterval(panelRefreshTimer))
 function openPanel() { panelOpen.value = true; if (windowWidth.value < 800) sidebarOpen.value = false }
 function animateDetails(event: MouseEvent) {

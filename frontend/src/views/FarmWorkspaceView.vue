@@ -30,7 +30,7 @@ const store = useWorkspaceStore()
 const route = useRoute()
 const router = useRouter()
 const legacy = computed(() => route.params.id === 'legacy-farm-01')
-const farmId = computed(() => legacy.value ? 'farm-01' : 'yantian-01')
+const farmId = computed(() => legacy.value ? 'zhangye-01' : String(route.params.id || 'zhangye-01'))
 let refreshTimer = 0
 onMounted(() => {
   store.selectedEntityId = legacy.value ? 'field-04' : null
@@ -179,7 +179,7 @@ function askAgent(prompt:string){router.push({path:'/assistant',query:{prompt,fa
     <TransportCenter v-if="transportOpen && !legacy" @close="transportOpen=false"/>
     <PostHarvestCenter v-if="postharvestOpen && store.snapshot" :snapshot="store.snapshot" :initial-batch="traceBatch" @close="postharvestOpen=false" @ask="askAgent"/>
     <PearVisionPanel v-if="visionOpen && !legacy" :farm-id="farmId" :selected-id="store.selectedEntityId" :plots="farmZones" :names="visionNames" @close="closeVision" @ask="askAgent" />
-    <FarmTopBar :farm-name="store.snapshot?.farmName" :legacy="legacy" @farm="router.push($event === 'farm-01' ? '/workspaces/legacy-farm-01' : '/workspaces/farm-01')" :notification-count="dashboardSummary.openAlerts" @search="searchEntity" @notify="notificationsOpen = !notificationsOpen" />
+    <FarmTopBar :farm-name="store.snapshot?.farmName" :legacy="legacy" @farm="router.push($event === 'legacy-farm-01' ? '/workspaces/legacy-farm-01' : '/workspaces/zhangye-01')" :notification-count="dashboardSummary.openAlerts" @search="searchEntity" @notify="notificationsOpen = !notificationsOpen" />
     <WeatherCard :class="{ 'detail-mode-hidden': store.drawerOpen || (!legacy && firstPersonActive) }" @detail="handleModule('environment')" />
     <div class="scene-name"><span class="status-dot"></span>{{ sceneLabel }}</div>
 

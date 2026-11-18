@@ -11,7 +11,7 @@ let timer=0,users=0,busy=false
 export function transportPosition(time=performance.now()){const p=playback.read(time);return {x:p.x,y:p.y}}
 export function transportHeading(time=performance.now()){return playback.read(time).heading}
 export function transportAnimating(time=performance.now()){return playback.animating(time)}
-export async function transportRequest(path='',method='GET',body?:unknown){const r=await fetch('/api/farms/yantian-01/transport'+path,{method,headers:{Authorization:'Bearer '+getToken(),'Content-Type':'application/json'},body:body?JSON.stringify(body):undefined});const value=await r.json();if(!r.ok)throw Error(value.message||'运输服务不可用');return value}
+export async function transportRequest(path='',method='GET',body?:unknown){const r=await fetch('/api/farms/zhangye-01/transport'+path,{method,headers:{Authorization:'Bearer '+getToken(),'Content-Type':'application/json'},body:body?JSON.stringify(body):undefined});const value=await r.json();if(!r.ok)throw Error(value.message||'运输服务不可用');return value}
 export async function refreshTransport(){
  if(busy)return;busy=true
  try{
