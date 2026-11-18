@@ -4,6 +4,7 @@ import * as THREE from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import { PointerLockControls } from 'three/examples/jsm/controls/PointerLockControls.js'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
+import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js'
 import type { BusinessModule } from '@/types'
 import { sceneEntities } from '@/data/farm'
 import ProgressBar from '@/components/ui/ProgressBar.vue'
@@ -56,6 +57,8 @@ let starField: THREE.Points | undefined
 let lastClockSecond = -1
 let lastShadowMinute = -1
 let normalPixelRatio = 1
+let lastShadowRefresh = 0
+const nightLights: THREE.PointLight[] = []
 
 type CropKind = 'tomato' | 'strawberry' | 'cucumber' | 'seedling' | 'leafy' | 'goldTomato'
 
@@ -127,6 +130,19 @@ function addBoxCollider(id:string,box:THREE.Box3,padding=.18){
 function walkPositionBlocked(x:number,z:number){
   const radius=.38
   return walkColliders.some(item=>x+radius>item.minX&&x-radius<item.maxX&&z+radius>item.minZ&&z-radius<item.maxZ)
+}
+
+/** 地形高度：中央平台保持平整，只有最外圈才抬升，避免道路、树木、建筑穿模。 */
+function terrainHeightAt(x:number,z:number){
+  const edge=Math.max(Math.abs(x)/41,Math.abs(z)/31)
+  return Math.max(0,edge-.84)*8+Math.sin(x*.18)*Math.cos(z*.16)*.06
+}
+
+/** 阴影是按需渲染的，这里做节流刷新，避免每帧重算 2048 阴影贴图。 */
+function requestShadowRefresh(force=false){
+  if(!renderer)return
+  const now=performance.now()
+  if(force||now-lastShadowRefresh>240){lastShadowRefresh=now;renderer.shadowMap.needsUpdate=true}
 }
 
 function ensureSelectionMarkerTexture(){
@@ -314,9 +330,7 @@ function createGround() {
   const positions = geometry.attributes.position as THREE.BufferAttribute
   for (let i = 0; i < positions.count; i++) {
     const x = positions.getX(i); const y = positions.getY(i)
-    const edge = Math.max(Math.abs(x) / 41, Math.abs(y) / 31)
-    const rise = Math.max(0, edge - .72) * 8 + Math.sin(x * .18) * Math.cos(y * .16) * .18
-    positions.setZ(i, rise)
+    positions.setZ(i, terrainHeightAt(x, y))
   }
   geometry.computeVertexNormals()
   const ground = new THREE.Mesh(geometry, new THREE.MeshStandardMaterial({ map: grass, roughness: .98, color: 0xb5c796 }))
@@ -333,7 +347,7 @@ function createSkyDetails(){
   const cloudTexture=new THREE.CanvasTexture(cloudCanvas);const cloudGeometry=new THREE.BufferGeometry();const cloudPositions:number[]=[]
   for(let i=0;i<8;i++){const x=-48+(i*19)%96;const y=17+(i%4)*2.4;const z=-42+(i*29)%78;cloudPositions.push(x,y,z,x+3.8,y+.45,z+.2,x-3.5,y-.25,z-.1)}
   cloudGeometry.setAttribute('position',new THREE.Float32BufferAttribute(cloudPositions,3))
-  cloudField=new THREE.Points(cloudGeometry,new THREE.PointsMaterial({map:cloudTexture,size:9.5,transparent:true,opacity:.64,depthWrite:false,color:0xf1faf5,sizeAttenuation:true}));scene.add(cloudField)
+  cloudField=new THREE.Points(cloudGeometry,new THREE.PointsMaterial({map:cloudTexture,size:6.8,transparent:true,opacity:.64,depthWrite:false,color:0xf1faf5,sizeAttenuation:true}));scene.add(cloudField)
   const starPositions:number[]=[];let seed=31991
   for(let i=0;i<280;i++){seed=seed*16807%2147483647;const theta=seed/2147483647*Math.PI*2;seed=seed*16807%2147483647;const radius=65+(seed%1800)/100;seed=seed*16807%2147483647;const y=14+(seed%3800)/100;starPositions.push(Math.cos(theta)*radius,y,Math.sin(theta)*radius)}
   const starGeometry=new THREE.BufferGeometry();starGeometry.setAttribute('position',new THREE.Float32BufferAttribute(starPositions,3))
@@ -350,6 +364,7 @@ function updateDayNight(force=false){
   const phase=(hour-6)/12*Math.PI;sun.position.set(Math.cos(phase)*42,Math.max(3,Math.sin(phase)*43),Math.sin(phase)*18)
   sun.intensity=.08+daylight*3.12;sun.color.set(hour>17&&hour<20?0xffb16e:hour>5&&hour<8?0xffc886:0xfff2d5)
   hemisphere.intensity=.3+daylight*1.95
+  nightLights.forEach((light,index)=>{light.intensity=(1-daylight)*(index<2?14:10)})
   const night=new THREE.Color(0x071521);const day=new THREE.Color(0xa6c9cf);const twilight=new THREE.Color(0x8b766e)
   const sky=night.clone().lerp(day,daylight);if((hour>5&&hour<7.3)||(hour>17.3&&hour<20))sky.lerp(twilight,.28)
   scene.background=sky;scene.fog?.color.copy(sky);renderer.toneMappingExposure=.62+daylight*.46
@@ -361,21 +376,22 @@ function updateDayNight(force=false){
 function addRoad(x: number, z: number, width: number, depth: number) {
   if (!scene) return
   ensureRoadMaterials()
+  const baseY = terrainHeightAt(x, z) + .05
   const road = new THREE.Mesh(new THREE.BoxGeometry(width, .09, depth), roadMaterial!)
-  road.position.set(x, .05, z); road.receiveShadow = true; scene.add(road)
+  road.position.set(x, baseY, z); road.receiveShadow = true; scene.add(road)
   if (width > depth) {
-    for (const side of [-1,1]) { const curb = new THREE.Mesh(new THREE.BoxGeometry(width,.18,.16),curbMaterial!);curb.position.set(x,.09,z+side*depth/2);scene.add(curb) }
-    for (let offset = -width / 2 + 1; offset < width / 2 - .5; offset += 2.4) { const mark = new THREE.Mesh(new THREE.BoxGeometry(1.1,.025,.055),roadMarkMaterial!);mark.position.set(x+offset,.112,z);scene.add(mark) }
+    for (const side of [-1,1]) { const curb = new THREE.Mesh(new THREE.BoxGeometry(width,.18,.16),curbMaterial!);curb.position.set(x,baseY+.04,z+side*depth/2);scene.add(curb) }
+    for (let offset = -width / 2 + 1; offset < width / 2 - .5; offset += 2.4) { const mark = new THREE.Mesh(new THREE.BoxGeometry(1.1,.025,.055),roadMarkMaterial!);mark.position.set(x+offset,baseY+.062,z);scene.add(mark) }
   } else {
-    for (const side of [-1,1]) { const curb = new THREE.Mesh(new THREE.BoxGeometry(.16,.18,depth),curbMaterial!);curb.position.set(x+side*width/2,.09,z);scene.add(curb) }
-    for (let offset = -depth / 2 + 1; offset < depth / 2 - .5; offset += 2.4) { const mark = new THREE.Mesh(new THREE.BoxGeometry(.055,.025,1.1),roadMarkMaterial!);mark.position.set(x,.112,z+offset);scene.add(mark) }
+    for (const side of [-1,1]) { const curb = new THREE.Mesh(new THREE.BoxGeometry(.16,.18,depth),curbMaterial!);curb.position.set(x+side*width/2,baseY+.04,z);scene.add(curb) }
+    for (let offset = -depth / 2 + 1; offset < depth / 2 - .5; offset += 2.4) { const mark = new THREE.Mesh(new THREE.BoxGeometry(.055,.025,1.1),roadMarkMaterial!);mark.position.set(x,baseY+.062,z+offset);scene.add(mark) }
   }
 }
 
 function addGreenhouse(x: number, z: number, id: string, rotation = 0) {
   if (!scene) return
   const group = new THREE.Group(); group.position.set(x, 0, z); group.rotation.y = rotation; group.userData.id = id
-  const glass = new THREE.MeshPhysicalMaterial({ color: 0xc8eee0, metalness: 0, roughness: .08, transmission: .5, transparent: true, opacity: .52, thickness: .08, side: THREE.DoubleSide, depthWrite: false })
+  const glass = new THREE.MeshPhysicalMaterial({ color: 0xd6f2e6, metalness: .05, roughness: .06, transparent: true, opacity: .34, clearcoat: 1, clearcoatRoughness: .08, envMapIntensity: 1.45, side: THREE.DoubleSide, depthWrite: false })
   const metal = new THREE.MeshStandardMaterial({ color: 0xdde4df, metalness: .75, roughness: .28 })
   const base = new THREE.Mesh(new THREE.BoxGeometry(8, 1.8, 3.6), glass); base.position.y = .95; base.castShadow = true; group.add(base)
   const roof = new THREE.Mesh(new THREE.CylinderGeometry(1.8, 1.8, 8, 32, 1, false, 0, Math.PI), glass)
@@ -453,8 +469,8 @@ function addTrees() {
     let x,z
     if(edge){const side=i%2?1:-1;x=side*(31+(i%7)*.45);z=-25+(i%40)*1.25}else{x=-27+(i%35)*1.6;z=[-18,-4,10,23][lane] + (i%3)*.25}
     if(Math.abs(x)<19 && z>-23 && z<22) continue
-    const s=.75+(i%5)*.08;dummy.position.set(x,.35*s,z);dummy.scale.set(s,s,s);dummy.updateMatrix();trunks.setMatrixAt(index,dummy.matrix)
-    dummy.position.y=.95*s;dummy.scale.set(s,1.15*s,s);dummy.updateMatrix();crowns.setMatrixAt(index,dummy.matrix);index++
+    const s=.75+(i%5)*.08;const base=terrainHeightAt(x,z);dummy.position.set(x,base+.35*s,z);dummy.scale.set(s,s,s);dummy.updateMatrix();trunks.setMatrixAt(index,dummy.matrix)
+    dummy.position.y=base+.95*s;dummy.scale.set(s,1.15*s,s);dummy.updateMatrix();crowns.setMatrixAt(index,dummy.matrix);index++
   }
   trunks.count=crowns.count=index;trunks.castShadow=crowns.castShadow=true;scene.add(trunks,crowns)
 }
@@ -545,16 +561,29 @@ async function loadPublicModels() {
   loading.value=false
 }
 
+/** 夜间补光：原先夜里只有 .08 的太阳和 .3 的半球光，整片农场是死黑的。 */
+function createNightLights(){
+  if(!scene)return
+  const spots:[number,number,number,number][]=[[-12,4.4,6,26],[8,4.4,6,26],[-26,4.6,-3,20],[24,4.6,-18,22]]
+  for(const [x,y,z,distance] of spots){
+    const light=new THREE.PointLight(0xffb46a,0,distance,1.4)
+    light.position.set(x,y,z);scene.add(light);nightLights.push(light)
+  }
+}
+
 function init() {
   if (!host.value) return
-  scene=new THREE.Scene();scene.background=new THREE.Color(0xa6c9cf);scene.fog=new THREE.Fog(0xa9c9c8,38,88)
+  scene=new THREE.Scene();scene.background=new THREE.Color(0xa6c9cf);scene.fog=new THREE.Fog(0xa9c9c8,62,165)
   camera=new THREE.PerspectiveCamera(42,host.value.clientWidth/host.value.clientHeight,.1,180);camera.position.set(31,31,39)
   renderer=new THREE.WebGLRenderer({antialias:true,alpha:false,powerPreference:'high-performance'});normalPixelRatio=Math.min(devicePixelRatio,1.45);renderer.setPixelRatio(normalPixelRatio);renderer.setSize(host.value.clientWidth,host.value.clientHeight);renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.08;host.value.appendChild(renderer.domElement)
+  // 没有环境贴图时，金属材质只能反射纯黑，钢架/水塔会发灰发暗；这里补一张室内环境贴图做 IBL。
+  const pmrem=new THREE.PMREMGenerator(renderer);scene.environment=pmrem.fromScene(new RoomEnvironment(),.04).texture;pmrem.dispose()
   controls=new OrbitControls(camera,renderer.domElement);controls.enableDamping=true;controls.dampingFactor=.065;controls.target.set(0,0,1);controls.maxPolarAngle=Math.PI/2.18;controls.minPolarAngle=.28;controls.minDistance=17;controls.maxDistance=72;controls.enablePan=true
   fpsControls=new PointerLockControls(camera,renderer.domElement);fpsControls.pointerSpeed=.72;fpsControls.addEventListener('lock',onPointerLock);fpsControls.addEventListener('unlock',onPointerUnlock)
-  hemisphere=new THREE.HemisphereLight(0xeafaff,0x42583a,2.25);scene.add(hemisphere);sun=new THREE.DirectionalLight(0xfff2d5,3.2);sun.position.set(-24,42,18);sun.castShadow=true;sun.shadow.mapSize.set(1024,1024);sun.shadow.camera.left=-38;sun.shadow.camera.right=38;sun.shadow.camera.top=32;sun.shadow.camera.bottom=-32;sun.shadow.bias=-.00025;scene.add(sun)
+  hemisphere=new THREE.HemisphereLight(0xeafaff,0x42583a,2.25);scene.add(hemisphere);sun=new THREE.DirectionalLight(0xfff2d5,3.2);sun.position.set(-24,42,18);sun.castShadow=true;sun.shadow.mapSize.set(2048,2048);sun.shadow.camera.left=-40;sun.shadow.camera.right=40;sun.shadow.camera.top=34;sun.shadow.camera.bottom=-34;sun.shadow.bias=-.00025;sun.shadow.normalBias=.022;scene.add(sun)
+  controls.addEventListener('change',()=>requestShadowRefresh())
   createSkyDetails();createGround();[-22,-15,-9,-3,3,10,24].forEach(z=>addRoad(0,z,38,1.45));[-19,19].forEach(x=>addRoad(x,2,1.6,48))
-  addTrees();addWaterAndEquipment();addEnvironmentAndAlerts();addOperationalLayers()
+  addTrees();addWaterAndEquipment();addEnvironmentAndAlerts();addOperationalLayers();createNightLights()
   ;['gh-01','gh-02','gh-03','gh-04','gh-06','gh-05'].forEach((id,index)=>{const position=entityPosition(id,[index*8-16,0,0]);addGreenhouse(position[0],position[2],id)})
   const field04=entityPosition('field-04',[-3,0,15]);const field05=entityPosition('field-05',[14,0,15]);addCropPlot(field04[0],field04[2],11,8,'field-04','leafy');addCropPlot(field05[0],field05[2],9,7,'field-05','leafy')
   renderer.domElement.addEventListener('click',onClick);renderer.domElement.addEventListener('dblclick',onDoubleClick);renderer.domElement.addEventListener('pointermove',onPointerMove);renderer.domElement.addEventListener('pointerleave',clearHover);window.addEventListener('resize',resize);window.addEventListener('keydown',onKeyDown);window.addEventListener('keyup',onKeyUp);updateDayNight(true);loadPublicModels();animate();updateModuleLayers();setSelectionHelper(props.selectedId)
@@ -574,6 +603,7 @@ function animate(){
     const nextX=THREE.MathUtils.clamp(proposed.x,-34,34);if(!walkPositionBlocked(nextX,previous.z))camera.position.x=nextX
     const nextZ=THREE.MathUtils.clamp(proposed.z,-27,27);if(!walkPositionBlocked(camera.position.x,nextZ))camera.position.z=nextZ
     camera.position.y=1.7
+    requestShadowRefresh()
   }else controls?.update()
   updateDayNight();if(cloudField)cloudField.rotation.y+=delta*.0025
   for(const item of animated){
@@ -688,7 +718,7 @@ onBeforeUnmount(()=>{
       </div>
     </Transition>
     <div class="world-time"><i :class="dayPeriod"></i><span>{{ dayPeriod }}</span><b>{{ farmTime }}</b><small>真实时间同步</small></div>
-    <div class="quality"><i></i> WEBGL · HIGH QUALITY</div>
+    <div class="quality"><i></i> WEBGL · 实时场景</div>
   </div>
 </template>
 
