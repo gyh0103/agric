@@ -29,7 +29,10 @@ public class AgentModelClient {
             throw new IllegalStateException("问答模型尚未配置 API Key，请管理员在后台管理 → 系统配置中填写问答模型 Key");
         }
         String endpoint = base.replaceAll("/+$", "") + "/chat/completions";
-        var body = Map.of("model",model,"messages",messages,"tools",tools,"stream",false,"temperature",0.1,"max_tokens",runtime.maxTokens());
+        var body = new LinkedHashMap<String,Object>();
+        body.put("model",model); body.put("messages",messages);
+        if (tools != null && !tools.isEmpty()) body.put("tools",tools);
+        body.put("stream",false); body.put("temperature",0.1); body.put("max_tokens",runtime.maxTokens());
         var builder = HttpRequest.newBuilder(URI.create(endpoint)).timeout(Duration.ofSeconds(180))
             .header("Content-Type","application/json");
         if (!key.isBlank()) builder.header("Authorization","Bearer "+key);
