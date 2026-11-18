@@ -13,7 +13,7 @@ public class VisionController {
     @GetMapping("/model") public Map<String,Object> model(){return service.model();}
     @GetMapping("/cloud") public Map<String,Object> cloudStatus(){return cloud.status();}
     @PostMapping(value="/analyze",consumes=MediaType.MULTIPART_FORM_DATA_VALUE)
-    public Map<String,Object> analyze(@RequestAttribute(AuthInterceptor.CURRENT_USER_ATTR) User user,@RequestParam(required=false) String crop,@RequestParam(required=false) String task,@RequestParam MultipartFile file){return cloud.analyze(crop,task,file);}
+    public Map<String,Object> analyze(@RequestAttribute(AuthInterceptor.CURRENT_USER_ATTR) User user,@RequestParam(required=false) String crop,@RequestParam(required=false) String task,@RequestParam(required=false) MultipartFile file,@RequestParam(required=false) MultipartFile image){return cloud.analyze(crop,task,file!=null?file:image);}
     @PostMapping("/jobs") @ResponseStatus(HttpStatus.ACCEPTED)
     public VisionService.View create(@RequestAttribute(AuthInterceptor.CURRENT_USER_ATTR) User user,@RequestParam String farmId,@RequestParam String plotId,@RequestParam MultipartFile file){return service.create(user.getId(),farmId,plotId,file);}
     @GetMapping("/jobs") public List<VisionService.View> list(@RequestAttribute(AuthInterceptor.CURRENT_USER_ATTR) User user,@RequestParam String farmId){return service.list(user.getId(),farmId);}

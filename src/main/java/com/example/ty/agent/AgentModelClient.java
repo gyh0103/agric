@@ -16,7 +16,7 @@ public class AgentModelClient {
     private final ObjectMapper json;
     private final SettingsService settings;
     private final AgentRuntimeSettings runtime;
-    private final HttpClient http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build();
+    private final HttpClient http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10)).version(HttpClient.Version.HTTP_1_1).build();
 
     public String model() { return settings.get(SettingsService.AGENT_MODEL); }
 

@@ -2,11 +2,23 @@ package com.example.ty.vision;
 
 import com.example.ty.admin.SettingsService;
 import com.example.ty.auth.exception.BizException;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
+import javax.imageio.IIOImage;
+import javax.imageio.ImageIO;
+import javax.imageio.ImageWriteParam;
+import javax.imageio.ImageWriter;
+import javax.imageio.stream.ImageOutputStream;
+import java.awt.Color;
+import java.awt.Graphics2D;
+import java.awt.RenderingHints;
+import java.awt.image.BufferedImage;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -20,12 +32,20 @@ import java.util.*;
  * 配置优先读取后台写入的数据库值，未配置时回落到环境变量；
  * 两者都为空时接口返回 503，不影响其余功能。
  */
+@Slf4j
 @Service
 public class CloudVisionService {
 
+    /** 单张图片送入模型前的最长边，压缩后通常只有几百 KB，可显著降低往返耗时。 */
+    private static final int MAX_EDGE = 1280;
+    /** 长图压缩阈值：小于该体积且尺寸合规的图片直接原样上传。 */
+    private static final int KEEP_ORIGINAL_BELOW = 400 * 1024;
+    /** 最多尝试次数；中转网关偶发连接超时与 502，重试能明显提高成功率。 */
+    private static final int MAX_ATTEMPTS = 3;
+
     private final ObjectMapper json;
     private final SettingsService settings;
-    private final HttpClient http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10)).build();
+    private final HttpClient http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(20)).version(HttpClient.Version.HTTP_1_1).build();
 
     public CloudVisionService(ObjectMapper json, SettingsService settings) {
         this.json = json;
@@ -70,10 +90,11 @@ public class CloudVisionService {
         String mime = Optional.ofNullable(upload.getContentType()).orElse("image/jpeg").toLowerCase(Locale.ROOT);
         if (!mime.startsWith("image/")) throw BizException.badRequest("仅支持 JPG、PNG、WEBP 图片");
         String model = model();
+        String endpoint = baseUrl().replaceAll("/+$", "") + "/chat/completions";
         try {
             byte[] bytes = upload.getBytes();
-            String dataUrl = "data:" + mime + ";base64," + Base64.getEncoder().encodeToString(bytes);
-            var payload = Map.of(
+            String dataUrl = dataUrl(bytes, mime);
+            String body = json.writeValueAsString(Map.of(
                     "model", model,
                     "temperature", 0.2,
                     "messages", List.of(Map.of(
@@ -83,24 +104,115 @@ public class CloudVisionService {
                                     Map.of("type", "image_url", "image_url", Map.of("url", dataUrl))
                             )
                     ))
-            );
-            HttpRequest request = HttpRequest.newBuilder(URI.create(baseUrl().replaceAll("/+$", "") + "/chat/completions"))
-                    .timeout(Duration.ofSeconds(timeout()))
-                    .header("Content-Type", "application/json")
-                    .header("Authorization", "Bearer " + apiKey())
-                    .POST(HttpRequest.BodyPublishers.ofString(json.writeValueAsString(payload)))
-                    .build();
-            HttpResponse<String> response = http.send(request, HttpResponse.BodyHandlers.ofString());
-            if (response.statusCode() / 100 != 2)
-                throw new BizException("VISION_CLOUD_FAILED", "云端识别服务返回 " + response.statusCode() + "，请稍后重试", 502);
-            return parse(model, crop, task, contentOf(json.readTree(response.body())));
+            ));
+            log.info("云端识别请求 endpoint={} model={} 原图{}KB 请求体{}KB", endpoint, model, bytes.length / 1024, body.length() / 1024);
+            long deadline = System.currentTimeMillis() + timeout() * 1000L;
+            Exception last = null;
+            for (int attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+                long remaining = deadline - System.currentTimeMillis();
+                if (remaining < 15_000) break;
+                long started = System.currentTimeMillis();
+                try {
+                    HttpRequest request = HttpRequest.newBuilder(URI.create(endpoint))
+                            .timeout(Duration.ofMillis(remaining))
+                            .header("Content-Type", "application/json")
+                            .header("Authorization", "Bearer " + apiKey())
+                            .POST(HttpRequest.BodyPublishers.ofString(body))
+                            .build();
+                    HttpResponse<String> response = http.send(request, HttpResponse.BodyHandlers.ofString());
+                    long elapsed = System.currentTimeMillis() - started;
+                    int status = response.statusCode();
+                    log.info("云端识别第{}次尝试 状态={} 耗时={}ms", attempt, status, elapsed);
+                    if (status / 100 == 2) return parse(model, crop, task, contentOf(json.readTree(response.body())));
+                    log.warn("云端识别返回非 2xx：{} {}", status, abbreviate(response.body()));
+                    last = new IllegalStateException("HTTP " + status);
+                    if (status < 500 && status != 429)
+                        throw new BizException("VISION_CLOUD_FAILED", "云端识别服务返回 " + status + "，请稍后重试", 502);
+                } catch (BizException e) {
+                    throw e;
+                } catch (java.net.http.HttpTimeoutException e) {
+                    last = e;
+                    log.warn("云端识别第{}次尝试超时（{}ms）：{}", attempt, System.currentTimeMillis() - started, e.toString());
+                } catch (Exception e) {
+                    last = e;
+                    log.warn("云端识别第{}次尝试失败（{}ms）：{}", attempt, System.currentTimeMillis() - started, e.toString());
+                }
+                if (attempt < MAX_ATTEMPTS) {
+                    try {
+                        Thread.sleep(1500L * attempt);
+                    } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                        break;
+                    }
+                }
+            }
+            log.warn("云端识别最终失败 endpoint={} 最后异常={}", endpoint, last == null ? "时间预算不足" : last.toString());
+            if (last instanceof java.net.http.HttpTimeoutException)
+                throw new BizException("VISION_CLOUD_TIMEOUT", "云端识别超时（已重试），请换一张更小的图片或稍后再试", 504);
+            throw new BizException("VISION_CLOUD_ERROR", "云端识别服务暂时不可用（已重试），请稍后再试", 502);
         } catch (BizException e) {
             throw e;
-        } catch (java.net.http.HttpTimeoutException e) {
-            throw new BizException("VISION_CLOUD_TIMEOUT", "云端识别超时，请换一张更小的图片重试", 504);
         } catch (Exception e) {
+            log.error("云端识别调用异常", e);
             throw new BizException("VISION_CLOUD_ERROR", "云端识别调用失败：" + e.getClass().getSimpleName(), 502);
         }
+    }
+
+    /**
+     * 把上传图片压到适合模型处理的大小：长边不超过 {@link #MAX_EDGE}，
+     * 体积超过阈值时重新编码为 JPEG。ImageIO 不支持 webp 时回退原图。
+     */
+    private String dataUrl(byte[] bytes, String mime) {
+        byte[] out = bytes;
+        String outMime = mime;
+        try {
+            BufferedImage source = ImageIO.read(new ByteArrayInputStream(bytes));
+            if (source != null) {
+                int width = source.getWidth(), height = source.getHeight();
+                double scale = Math.min(1.0, (double) MAX_EDGE / Math.max(width, height));
+                boolean needScale = scale < 1.0;
+                if (needScale || bytes.length > KEEP_ORIGINAL_BELOW) {
+                    int targetWidth = Math.max(1, (int) Math.round(width * scale));
+                    int targetHeight = Math.max(1, (int) Math.round(height * scale));
+                    BufferedImage canvas = new BufferedImage(targetWidth, targetHeight, BufferedImage.TYPE_INT_RGB);
+                    Graphics2D graphics = canvas.createGraphics();
+                    graphics.setColor(Color.WHITE);
+                    graphics.fillRect(0, 0, targetWidth, targetHeight);
+                    graphics.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+                    graphics.drawImage(source, 0, 0, targetWidth, targetHeight, null);
+                    graphics.dispose();
+                    byte[] jpeg = jpeg(canvas);
+                    if (jpeg.length > 0 && jpeg.length < bytes.length) {
+                        out = jpeg;
+                        outMime = "image/jpeg";
+                    }
+                }
+            }
+        } catch (Exception e) {
+            log.warn("云端识别图片压缩跳过：{}", e.toString());
+        }
+        log.info("云端识别图片：{}KB -> {}KB ({})", bytes.length / 1024, out.length / 1024, outMime);
+        return "data:" + outMime + ";base64," + Base64.getEncoder().encodeToString(out);
+    }
+
+    private static byte[] jpeg(BufferedImage image) throws Exception {
+        ImageWriter writer = ImageIO.getImageWritersByFormatName("jpeg").next();
+        ByteArrayOutputStream buffer = new ByteArrayOutputStream();
+        try (ImageOutputStream stream = ImageIO.createImageOutputStream(buffer)) {
+            writer.setOutput(stream);
+            ImageWriteParam param = writer.getDefaultWriteParam();
+            param.setCompressionMode(ImageWriteParam.MODE_EXPLICIT);
+            param.setCompressionQuality(0.85f);
+            writer.write(null, new IIOImage(image, null, null), param);
+        } finally {
+            writer.dispose();
+        }
+        return buffer.toByteArray();
+    }
+
+    private static String abbreviate(String text) {
+        if (text == null) return "";
+        return text.length() > 200 ? text.substring(0, 200) + "…" : text;
     }
 
     private static String contentOf(JsonNode body) {
