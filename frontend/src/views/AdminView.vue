@@ -48,11 +48,31 @@ const notice = ref('')
 const error = ref('')
 
 const settingsItems = ref<SettingItem[]>([])
-const form = reactive<Record<string, string>>({})
-const apiKeyInput = ref('')
-const saving = ref(false)
+
+// 三组独立状态，互不干扰
+const VISION_KEYS = ['vision.cloud.base-url', 'vision.cloud.api-key', 'vision.cloud.model', 'vision.cloud.timeout-seconds', 'vision.prompt', 'vision.cloud.max-edge']
+const AGENT_KEYS = ['agent.base-url', 'agent.api-key', 'agent.model', 'agent.prompt']
+const SENSOR_KEYS = ['sensor.simulated', 'sensor.ingest-secret']
+
+const visionForm = reactive<Record<string, string>>({})
+const visionApiKey = ref('')
+const visionSaving = ref(false)
+
+const agentForm = reactive<Record<string, string>>({})
+const agentApiKey = ref('')
+const agentSaving = ref(false)
+
+const sensorForm = reactive<Record<string, string>>({})
+const sensorSecret = ref('')
+const sensorSaving = ref(false)
+
+const visionItems = computed(() => settingsItems.value.filter(item => VISION_KEYS.includes(item.key)))
+const agentItems = computed(() => settingsItems.value.filter(item => AGENT_KEYS.includes(item.key)))
+const sensorItems = computed(() => settingsItems.value.filter(item => SENSOR_KEYS.includes(item.key)))
 
 const visionItem = computed(() => settingsItems.value.find(item => item.key === 'vision.cloud.api-key'))
+const agentItem = computed(() => settingsItems.value.find(item => item.key === 'agent.api-key'))
+const sensorItem = computed(() => settingsItems.value.find(item => item.key === 'sensor.ingest-secret'))
 
 // ---------- 作物档案 ----------
 const crops = ref<AdminCrop[]>([])
@@ -487,15 +507,76 @@ async function loadSettings() {
   try {
     const data = await fetchSettings()
     settingsItems.value = data.items
-    data.items.forEach(item => {
-      form[item.key] = item.secret ? '' : item.value
+    // 每组独立灌数据
+    VISION_KEYS.forEach(k => {
+      const item = data.items.find(i => i.key === k)
+      if (item && !item.secret) visionForm[k] = item.value
     })
-    apiKeyInput.value = ''
+    AGENT_KEYS.forEach(k => {
+      const item = data.items.find(i => i.key === k)
+      if (item && !item.secret) agentForm[k] = item.value
+    })
+    SENSOR_KEYS.forEach(k => {
+      const item = data.items.find(i => i.key === k)
+      if (item && !item.secret) sensorForm[k] = item.value
+    })
+    visionApiKey.value = ''
+    agentApiKey.value = ''
+    sensorSecret.value = ''
   } catch (e) {
     fail(e)
   } finally {
     loading.value = false
   }
+}
+
+async function saveVisionOnly() {
+  visionSaving.value = true
+  try {
+    const payload: Record<string, string> = {}
+    VISION_KEYS.forEach(k => {
+      if (k === 'vision.cloud.api-key') return  // secret 单独处理
+      const v = visionForm[k]
+      if (v !== undefined) payload[k] = v.trim()
+    })
+    if (visionApiKey.value.trim()) payload['vision.cloud.api-key'] = visionApiKey.value.trim()
+    await saveSettings(payload)
+    flash('云端识别配置已保存')
+    await loadSettings()
+    await loadOverview()
+  } catch (e) { fail(e) } finally { visionSaving.value = false }
+}
+
+async function saveAgentOnly() {
+  agentSaving.value = true
+  try {
+    const payload: Record<string, string> = {}
+    AGENT_KEYS.forEach(k => {
+      if (k === 'agent.api-key') return
+      const v = agentForm[k]
+      if (v !== undefined) payload[k] = v.trim()
+    })
+    if (agentApiKey.value.trim()) payload['agent.api-key'] = agentApiKey.value.trim()
+    await saveSettings(payload)
+    flash('智能问农配置已保存')
+    await loadSettings()
+  } catch (e) { fail(e) } finally { agentSaving.value = false }
+}
+
+async function saveSensorOnly() {
+  sensorSaving.value = true
+  try {
+    const payload: Record<string, string> = {}
+    SENSOR_KEYS.forEach(k => {
+      if (k === 'sensor.ingest-secret') return
+      const v = sensorForm[k]
+      if (v !== undefined) payload[k] = v.trim()
+    })
+    if (sensorSecret.value.trim()) payload['sensor.ingest-secret'] = sensorSecret.value.trim()
+    await saveSettings(payload)
+    flash('传感器配置已保存')
+    await loadSettings()
+  } catch (e) { fail(e) } finally { sensorSaving.value = false }
 }
 
 async function switchTab(next: Tab) {
@@ -559,22 +640,6 @@ async function doDelete(user: AdminUser) {
     await loadUsers()
   } catch (e) {
     fail(e)
-  }
-}
-
-async function submitSettings() {
-  saving.value = true
-  try {
-    const payload: Record<string, string> = { ...form }
-    if (apiKeyInput.value.trim()) payload['vision.cloud.api-key'] = apiKeyInput.value.trim()
-    const result = await saveSettings(payload)
-    flash(result.visionConfigured ? '配置已保存，云端识别已启用' : '配置已保存，但 API Key 仍为空')
-    await loadSettings()
-    await loadOverview()
-  } catch (e) {
-    fail(e)
-  } finally {
-    saving.value = false
   }
 }
 
@@ -656,44 +721,86 @@ onBeforeUnmount(stopWeatherPolling)
     </section>
 
     <section v-if="tab === 'settings'" class="panel">
-      <div class="vision-head">
-        <div>
-          <h2>云端病害识别</h2>
-          <p>兼容 OpenAI 协议，支持阿里云百炼 / 火山方舟 / 智谱。保存后立即生效，无需重启服务。</p>
+      <p class="notice small">下方三组配置互相独立，保存任意一组都不会影响其他组。API Key 留空表示不修改。</p>
+
+      <!-- 云端病害识别 -->
+      <div class="settings-block">
+        <div class="vision-head">
+          <div>
+            <h3>云端病害识别（视觉模型）</h3>
+            <p>兼容 OpenAI 协议，支持阿里云百炼 / 火山方舟 / 智谱。保存后立即生效。</p>
+          </div>
+          <span class="pill" :class="visionItem?.configured ? 'pill-ok' : 'pill-off'">{{ visionItem?.configured ? '已启用' : '未配置' }}</span>
         </div>
-        <span class="pill" :class="visionItem?.configured ? 'pill-ok' : 'pill-off'">
-          {{ visionItem?.configured ? '已启用' : '未配置' }}
-        </span>
+        <div class="form">
+          <label v-for="item in visionItems" :key="item.key">
+            <span>{{ item.label }}</span>
+            <template v-if="item.secret">
+              <input v-model="visionApiKey" type="password" autocomplete="new-password"
+                :placeholder="item.configured ? `已配置（${item.value}），留空则不修改` : '粘贴 API Key'" />
+            </template>
+            <input v-else v-model="visionForm[item.key]" :placeholder="item.hint" />
+            <small>{{ item.hint }}</small>
+          </label>
+        </div>
+        <div class="actions">
+          <button class="primary" :disabled="visionSaving" @click="saveVisionOnly">{{ visionSaving ? '保存中…' : '保存视觉配置' }}</button>
+          <button :disabled="visionSaving" @click="loadSettings">放弃修改</button>
+        </div>
       </div>
 
-      <div class="form">
-        <label v-for="item in settingsItems" :key="item.key">
-          <span>{{ item.label }}</span>
-          <template v-if="item.secret">
-            <input
-              v-model="apiKeyInput"
-              type="password"
-              autocomplete="new-password"
-              :placeholder="item.configured ? `已配置（${item.value}），留空则不修改` : '粘贴 API Key'"
-            />
-          </template>
-          <input v-else v-model="form[item.key]" :placeholder="item.hint" />
-          <small>{{ item.hint }}<em v-if="item.overridden"> · 已被后台覆盖</em></small>
-        </label>
+      <!-- 智能问农 -->
+      <div class="settings-block">
+        <div class="vision-head">
+          <div>
+            <h3>智能问农 Agent（问答模型）</h3>
+            <p>负责解释识别结果、回答农事问题。与视觉模型可以是同一个 API Key，也可以分开。</p>
+          </div>
+          <span class="pill" :class="agentItem?.configured ? 'pill-ok' : 'pill-off'">{{ agentItem?.configured ? '已配置' : '未配置' }}</span>
+        </div>
+        <div class="form">
+          <label v-for="item in agentItems" :key="item.key">
+            <span>{{ item.label }}</span>
+            <template v-if="item.secret">
+              <input v-model="agentApiKey" type="password" autocomplete="new-password"
+                :placeholder="item.configured ? `已配置（${item.value}），留空则不修改` : '粘贴 API Key'" />
+            </template>
+            <input v-else v-model="agentForm[item.key]" :placeholder="item.hint" />
+            <small>{{ item.hint }}</small>
+          </label>
+        </div>
+        <div class="actions">
+          <button class="primary" :disabled="agentSaving" @click="saveAgentOnly">{{ agentSaving ? '保存中…' : '保存问答配置' }}</button>
+          <button :disabled="agentSaving" @click="loadSettings">放弃修改</button>
+        </div>
       </div>
 
-      <div class="actions">
-        <button class="primary" :disabled="saving" @click="submitSettings">{{ saving ? '保存中…' : '保存配置' }}</button>
-        <button :disabled="saving" @click="loadSettings">放弃修改</button>
-      </div>
-
-      <div class="tips">
-        <strong>常见配置</strong>
-        <ul>
-          <li>阿里云百炼：地址 <code>https://dashscope.aliyuncs.com/compatible-mode/v1</code>，模型 <code>qwen-vl-plus</code></li>
-          <li>智谱：地址 <code>https://open.bigmodel.cn/api/paas/v4</code>，模型 <code>glm-4v-flash</code></li>
-          <li>火山方舟：地址 <code>https://ark.cn-beijing.volces.com/api/v3</code>，模型填 Endpoint ID</li>
-        </ul>
+      <!-- 传感器 -->
+      <div class="settings-block">
+        <div class="vision-head">
+          <div>
+            <h3>传感器与模拟数据</h3>
+            <p>关闭模拟数据后，工作台的环境曲线只显示真实传感器 /api/sensor/ingest 上报的数值。</p>
+          </div>
+          <span class="pill" :class="sensorForm['sensor.simulated'] === 'true' ? '' : 'pill-ok'">
+            {{ sensorForm['sensor.simulated'] === 'false' ? '仅真实数据' : '含模拟数据' }}
+          </span>
+        </div>
+        <div class="form">
+          <label v-for="item in sensorItems" :key="item.key">
+            <span>{{ item.label }}</span>
+            <template v-if="item.secret">
+              <input v-model="sensorSecret" type="password" autocomplete="new-password"
+                :placeholder="item.configured ? `已配置（${item.value}），留空则不修改` : '留空表示不校验'" />
+            </template>
+            <input v-else v-model="sensorForm[item.key]" :placeholder="item.hint" />
+            <small>{{ item.hint }}</small>
+          </label>
+        </div>
+        <div class="actions">
+          <button class="primary" :disabled="sensorSaving" @click="saveSensorOnly">{{ sensorSaving ? '保存中…' : '保存传感器配置' }}</button>
+          <button :disabled="sensorSaving" @click="loadSettings">放弃修改</button>
+        </div>
       </div>
     </section>
 
@@ -1046,6 +1153,9 @@ td.ops button.danger { color: #a94442; border-color: #f0d3d1; }
 .tips { margin-top: 26px; padding: 16px; background: #f7faf7; border: 1px dashed #d7e5d8; border-radius: 12px; font-size: 12px; color: #6f8a79; }
 .tips strong { display: block; margin-bottom: 8px; color: #3c5a47; }
 .tips ul { margin: 0; padding-left: 18px; line-height: 2; }
+.settings-block { border: 1px solid #d5e2d8; border-radius: 12px; padding: 16px 18px; margin-bottom: 16px; background: #fbfdfb; }
+.settings-block h3 { font-size: 14px; color: #2f5d3d; margin: 0; }
+.settings-block .form { margin-top: 12px; }
 .tips code { background: #e9f1ea; padding: 1px 5px; border-radius: 4px; font-size: 11px; }
 .form-grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); margin-bottom: 6px; }
 .form-grid label { display: flex; flex-direction: column; gap: 6px; }
