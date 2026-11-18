@@ -17,7 +17,11 @@ public class WebConfig implements WebMvcConfigurer {
         registry.addInterceptor(authInterceptor)
                 .addPathPatterns("/api/**")
                 .excludePathPatterns(
-                        "/api/auth/**",
+                        "/api/auth/login",
+                        "/api/auth/register",
+                        "/api/auth/face-login",
+                        "/api/auth/reset-password",
+                        "/api/health",
                         "/api/sensor/ingest"   // 传感器网关专用，用独立 secret 校验，不走 JWT
                 );
     }
