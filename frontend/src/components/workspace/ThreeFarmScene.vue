@@ -308,22 +308,34 @@ function ensureRoadMaterials() {
     }
     ctx.fillStyle = 'rgba(30,34,33,.09)'; ctx.fillRect(s * .22, 0, 7, s); ctx.fillRect(s * .72, 0, 6, s)
   }, 4)
-  roadMaterial = new THREE.MeshStandardMaterial({ map: asphalt, color: 0xaeb5b1, roughness: .92, metalness: .02 })
-  curbMaterial = new THREE.MeshStandardMaterial({ color: 0xc5cabd, roughness: .75 })
-  roadMarkMaterial = new THREE.MeshStandardMaterial({ color: 0xe7e3c3, roughness: .72, emissive: 0x3b392a, emissiveIntensity: .05 })
+  roadMaterial = new THREE.MeshStandardMaterial({ map: asphalt, color: 0x8f968f, roughness: .96, metalness: .02, envMapIntensity: .25 })
+  curbMaterial = new THREE.MeshStandardMaterial({ color: 0xa8ae9c, roughness: .85, envMapIntensity: .2 })
+  roadMarkMaterial = new THREE.MeshStandardMaterial({ color: 0xd8d4b3, roughness: .8, envMapIntensity: .15 })
 }
 
 function createGround() {
   if (!scene) return
   const grass = createCanvasTexture((ctx, s) => {
-    ctx.fillStyle = '#5f843f'; ctx.fillRect(0, 0, s, s)
+    ctx.fillStyle = '#55703a'; ctx.fillRect(0, 0, s, s)
+    // 大尺度色斑：远看不会是一块均匀的绿色地毯
+    let blot = 9137
+    for (let i = 0; i < 46; i++) {
+      blot = (blot * 16807) % 2147483647; const bx = blot % s
+      blot = (blot * 16807) % 2147483647; const by = blot % s
+      blot = (blot * 16807) % 2147483647; const r = s * (.05 + (blot % 100) / 900)
+      const g = ctx.createRadialGradient(bx, by, 1, bx, by, r)
+      const light = 22 + blot % 14
+      g.addColorStop(0, `hsla(${82 + blot % 26},${26 + blot % 22}%,${light}%,.24)`)
+      g.addColorStop(1, 'rgba(0,0,0,0)')
+      ctx.fillStyle = g; ctx.fillRect(bx - r, by - r, r * 2, r * 2)
+    }
     let seed = 7123
-    for (let i = 0; i < 9000; i++) {
+    for (let i = 0; i < 14000; i++) {
       seed = (seed * 16807) % 2147483647
       const x = seed % s; seed = (seed * 16807) % 2147483647
-      const y = seed % s; const light = 26 + seed % 18
-      ctx.fillStyle = `hsla(${88 + seed % 20},${30 + seed % 25}%,${light}%,.22)`
-      ctx.fillRect(x, y, 1 + seed % 2, 2 + seed % 3)
+      const y = seed % s; const light = 20 + seed % 20
+      ctx.fillStyle = `hsla(${86 + seed % 22},${28 + seed % 30}%,${light}%,.3)`
+      ctx.fillRect(x, y, 1 + seed % 2, 2 + seed % 4)
     }
   }, 7)
   const geometry = new THREE.PlaneGeometry(82, 62, 32, 24)
@@ -333,10 +345,10 @@ function createGround() {
     positions.setZ(i, terrainHeightAt(x, y))
   }
   geometry.computeVertexNormals()
-  const ground = new THREE.Mesh(geometry, new THREE.MeshStandardMaterial({ map: grass, roughness: .98, color: 0xb5c796 }))
+  const ground = new THREE.Mesh(geometry, new THREE.MeshStandardMaterial({ map: grass, roughness: 1, color: 0x9fb682, envMapIntensity: .16 }))
   ground.rotation.x = -Math.PI / 2; ground.receiveShadow = true; ground.name = 'terrain'; scene.add(ground)
 
-  const underlay = new THREE.Mesh(new THREE.CylinderGeometry(47, 48, 2.2, 64), new THREE.MeshStandardMaterial({ color: 0x334f2f, roughness: 1 }))
+  const underlay = new THREE.Mesh(new THREE.CylinderGeometry(47, 48, 2.2, 64), new THREE.MeshStandardMaterial({ color: 0x2b4227, roughness: 1, envMapIntensity: .15 }))
   underlay.position.y = -1.35; scene.add(underlay)
 }
 
@@ -362,12 +374,12 @@ function updateDayNight(force=false){
   const solar=Math.sin((hour-6)/12*Math.PI);const daylight=THREE.MathUtils.smoothstep(Math.max(0,solar),0,.78)
   dayPeriod.value=hour<5?'深夜':hour<7?'晨曦':hour<17.5?'日间':hour<19.5?'黄昏':'夜间'
   const phase=(hour-6)/12*Math.PI;sun.position.set(Math.cos(phase)*42,Math.max(3,Math.sin(phase)*43),Math.sin(phase)*18)
-  sun.intensity=.08+daylight*3.12;sun.color.set(hour>17&&hour<20?0xffb16e:hour>5&&hour<8?0xffc886:0xfff2d5)
-  hemisphere.intensity=.3+daylight*1.95
+  sun.intensity=.06+daylight*2.95;sun.color.set(hour>17&&hour<20?0xffab5e:hour>5&&hour<8?0xffc07a:0xfff0cf)
+  hemisphere.intensity=.18+daylight*1.16
   nightLights.forEach((light,index)=>{light.intensity=(1-daylight)*(index<2?14:10)})
-  const night=new THREE.Color(0x071521);const day=new THREE.Color(0xa6c9cf);const twilight=new THREE.Color(0x8b766e)
+  const night=new THREE.Color(0x071521);const day=new THREE.Color(0x93bfcc);const twilight=new THREE.Color(0x8b766e)
   const sky=night.clone().lerp(day,daylight);if((hour>5&&hour<7.3)||(hour>17.3&&hour<20))sky.lerp(twilight,.28)
-  scene.background=sky;scene.fog?.color.copy(sky);renderer.toneMappingExposure=.62+daylight*.46
+  scene.background=sky;scene.fog?.color.copy(sky);renderer.toneMappingExposure=.5+daylight*.44
   if(cloudField){const material=cloudField.material as THREE.PointsMaterial;material.opacity=.16+daylight*.52;material.color.set(daylight>.15?0xf2faf5:0x526675)}
   if(starField){const material=starField.material as THREE.PointsMaterial;material.opacity=Math.max(0,.9-daylight*1.6);starField.visible=material.opacity>.02}
   if(now.getMinutes()!==lastShadowMinute){lastShadowMinute=now.getMinutes();renderer.shadowMap.needsUpdate=true}
@@ -391,8 +403,8 @@ function addRoad(x: number, z: number, width: number, depth: number) {
 function addGreenhouse(x: number, z: number, id: string, rotation = 0) {
   if (!scene) return
   const group = new THREE.Group(); group.position.set(x, 0, z); group.rotation.y = rotation; group.userData.id = id
-  const glass = new THREE.MeshPhysicalMaterial({ color: 0xd6f2e6, metalness: .05, roughness: .06, transparent: true, opacity: .34, clearcoat: 1, clearcoatRoughness: .08, envMapIntensity: 1.45, side: THREE.DoubleSide, depthWrite: false })
-  const metal = new THREE.MeshStandardMaterial({ color: 0xdde4df, metalness: .75, roughness: .28 })
+  const glass = new THREE.MeshPhysicalMaterial({ color: 0xd6f2e6, metalness: .05, roughness: .1, transparent: true, opacity: .3, clearcoat: .8, clearcoatRoughness: .12, envMapIntensity: .55, side: THREE.DoubleSide, depthWrite: false })
+  const metal = new THREE.MeshStandardMaterial({ color: 0xcfd8d2, metalness: .66, roughness: .42, envMapIntensity: .7 })
   const base = new THREE.Mesh(new THREE.BoxGeometry(8, 1.8, 3.6), glass); base.position.y = .95; base.castShadow = true; group.add(base)
   const roof = new THREE.Mesh(new THREE.CylinderGeometry(1.8, 1.8, 8, 32, 1, false, 0, Math.PI), glass)
   roof.rotation.z = Math.PI/2; roof.position.y = 1.82; roof.castShadow = true; group.add(roof)
@@ -461,8 +473,9 @@ function addCropPlot(x: number, z: number, width: number, depth: number, id: str
 function addTrees() {
   if (!scene) return
   const count = 150
-  const trunks = new THREE.InstancedMesh(new THREE.CylinderGeometry(.08,.11,.65,6),new THREE.MeshStandardMaterial({color:0x5c472f}),count)
-  const crowns = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(.42,1),new THREE.MeshStandardMaterial({color:0x376b36,roughness:.9}),count)
+  const trunks = new THREE.InstancedMesh(new THREE.CylinderGeometry(.08,.11,.65,6),new THREE.MeshStandardMaterial({color:0x4a3a26,roughness:1,envMapIntensity:.18}),count)
+  const crowns = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(.42,1),new THREE.MeshStandardMaterial({color:0xffffff,roughness:.92,envMapIntensity:.22}),count)
+  const palette=[new THREE.Color(0x33642f),new THREE.Color(0x3f7736),new THREE.Color(0x2c5a2b),new THREE.Color(0x4a7d3a)]
   const dummy = new THREE.Object3D(); let index=0
   for(let i=0;i<count;i++){
     const edge=i<80; const lane=i%4
@@ -470,7 +483,7 @@ function addTrees() {
     if(edge){const side=i%2?1:-1;x=side*(31+(i%7)*.45);z=-25+(i%40)*1.25}else{x=-27+(i%35)*1.6;z=[-18,-4,10,23][lane] + (i%3)*.25}
     if(Math.abs(x)<19 && z>-23 && z<22) continue
     const s=.75+(i%5)*.08;const base=terrainHeightAt(x,z);dummy.position.set(x,base+.35*s,z);dummy.scale.set(s,s,s);dummy.updateMatrix();trunks.setMatrixAt(index,dummy.matrix)
-    dummy.position.y=base+.95*s;dummy.scale.set(s,1.15*s,s);dummy.updateMatrix();crowns.setMatrixAt(index,dummy.matrix);index++
+    dummy.position.y=base+.95*s;dummy.scale.set(s,1.15*s,s);dummy.updateMatrix();crowns.setMatrixAt(index,dummy.matrix);crowns.setColorAt(index,palette[index%palette.length]);index++
   }
   trunks.count=crowns.count=index;trunks.castShadow=crowns.castShadow=true;scene.add(trunks,crowns)
 }
@@ -548,6 +561,7 @@ async function loadAsset(asset: typeof modelAssets[number]) {
   const wrapper = new THREE.Group();wrapper.position.set(asset.position[0],asset.position[1],asset.position[2]);wrapper.rotation.y=asset.rotation;wrapper.userData.id=asset.id;wrapper.add(model)
   model.traverse(obj=>{const mesh=obj as THREE.Mesh;if(mesh.isMesh){mesh.castShadow=true;mesh.receiveShadow=true;mesh.userData.id=asset.id;raycastTargets.push(mesh);if(Array.isArray(mesh.material))mesh.material.forEach(m=>m.side=THREE.FrontSide)}})
   scene.add(wrapper)
+  tuneEnvironmentIntensity(wrapper)
   entityObjects.set(asset.id,wrapper)
   wrapper.updateMatrixWorld(true);addBoxCollider(asset.id,new THREE.Box3().setFromObject(wrapper),asset.id==='robot-01'?.12:.22)
 }
@@ -559,6 +573,23 @@ async function loadPublicModels() {
   }))
   if(renderer){renderer.shadowMap.autoUpdate=false;renderer.shadowMap.needsUpdate=true}refreshSelectionMarkers()
   loading.value=false
+}
+
+/** 环境贴图会给所有 PBR 材质补一层白光，默认 1.0 会把画面洗白、阴影冲淡。
+ *  这里按材质类型统一压低：金属保留反光，草地/树木几乎不吃环境光。 */
+function tuneEnvironmentIntensity(root: THREE.Object3D){
+  root.traverse(object=>{
+    const mesh=object as THREE.Mesh
+    if(!mesh.isMesh||!mesh.material)return
+    const materials=Array.isArray(mesh.material)?mesh.material:[mesh.material]
+    for(const material of materials){
+      const standard=material as THREE.MeshStandardMaterial
+      if(standard.isMeshStandardMaterial&&standard.envMapIntensity===1){
+        standard.envMapIntensity=standard.metalness>.5?.85:.3
+        standard.needsUpdate=true
+      }
+    }
+  })
 }
 
 /** 夜间补光：原先夜里只有 .08 的太阳和 .3 的半球光，整片农场是死黑的。 */
@@ -573,19 +604,20 @@ function createNightLights(){
 
 function init() {
   if (!host.value) return
-  scene=new THREE.Scene();scene.background=new THREE.Color(0xa6c9cf);scene.fog=new THREE.Fog(0xa9c9c8,62,165)
-  camera=new THREE.PerspectiveCamera(42,host.value.clientWidth/host.value.clientHeight,.1,180);camera.position.set(31,31,39)
-  renderer=new THREE.WebGLRenderer({antialias:true,alpha:false,powerPreference:'high-performance'});normalPixelRatio=Math.min(devicePixelRatio,1.45);renderer.setPixelRatio(normalPixelRatio);renderer.setSize(host.value.clientWidth,host.value.clientHeight);renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.08;host.value.appendChild(renderer.domElement)
+  scene=new THREE.Scene();scene.background=new THREE.Color(0x93bfcc);scene.fog=new THREE.Fog(0xa9c9c8,78,195)
+  camera=new THREE.PerspectiveCamera(44,host.value.clientWidth/host.value.clientHeight,.1,180);camera.position.set(26,23,33)
+  renderer=new THREE.WebGLRenderer({antialias:true,alpha:false,powerPreference:'high-performance'});normalPixelRatio=Math.min(devicePixelRatio,1.3);renderer.setPixelRatio(normalPixelRatio);renderer.setSize(host.value.clientWidth,host.value.clientHeight);renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=.94;host.value.appendChild(renderer.domElement)
   // 没有环境贴图时，金属材质只能反射纯黑，钢架/水塔会发灰发暗；这里补一张室内环境贴图做 IBL。
   const pmrem=new THREE.PMREMGenerator(renderer);scene.environment=pmrem.fromScene(new RoomEnvironment(),.04).texture;pmrem.dispose()
-  controls=new OrbitControls(camera,renderer.domElement);controls.enableDamping=true;controls.dampingFactor=.065;controls.target.set(0,0,1);controls.maxPolarAngle=Math.PI/2.18;controls.minPolarAngle=.28;controls.minDistance=17;controls.maxDistance=72;controls.enablePan=true
+  controls=new OrbitControls(camera,renderer.domElement);controls.enableDamping=true;controls.dampingFactor=.065;controls.target.set(0,.6,0);controls.maxPolarAngle=Math.PI/2.18;controls.minPolarAngle=.28;controls.minDistance=15;controls.maxDistance=62;controls.enablePan=true
   fpsControls=new PointerLockControls(camera,renderer.domElement);fpsControls.pointerSpeed=.72;fpsControls.addEventListener('lock',onPointerLock);fpsControls.addEventListener('unlock',onPointerUnlock)
-  hemisphere=new THREE.HemisphereLight(0xeafaff,0x42583a,2.25);scene.add(hemisphere);sun=new THREE.DirectionalLight(0xfff2d5,3.2);sun.position.set(-24,42,18);sun.castShadow=true;sun.shadow.mapSize.set(2048,2048);sun.shadow.camera.left=-40;sun.shadow.camera.right=40;sun.shadow.camera.top=34;sun.shadow.camera.bottom=-34;sun.shadow.bias=-.00025;sun.shadow.normalBias=.022;scene.add(sun)
+  hemisphere=new THREE.HemisphereLight(0xdff2f8,0x46523a,1.35);scene.add(hemisphere);sun=new THREE.DirectionalLight(0xfff0cf,3.5);sun.position.set(-24,42,18);sun.castShadow=true;sun.shadow.mapSize.set(1536,1536);sun.shadow.camera.left=-32;sun.shadow.camera.right=32;sun.shadow.camera.top=28;sun.shadow.camera.bottom=-28;sun.shadow.camera.near=4;sun.shadow.camera.far=110;sun.shadow.bias=-.0004;sun.shadow.normalBias=.018;scene.add(sun)
   controls.addEventListener('change',()=>requestShadowRefresh())
-  createSkyDetails();createGround();[-22,-15,-9,-3,3,10,24].forEach(z=>addRoad(0,z,38,1.45));[-19,19].forEach(x=>addRoad(x,2,1.6,48))
+  createSkyDetails();createGround();[-22,-15,-9,-3,3,10,24].forEach(z=>addRoad(0,z,30,1.35));[-15.5,15.5].forEach(x=>addRoad(x,2,1.5,37))
   addTrees();addWaterAndEquipment();addEnvironmentAndAlerts();addOperationalLayers();createNightLights()
   ;['gh-01','gh-02','gh-03','gh-04','gh-06','gh-05'].forEach((id,index)=>{const position=entityPosition(id,[index*8-16,0,0]);addGreenhouse(position[0],position[2],id)})
   const field04=entityPosition('field-04',[-3,0,15]);const field05=entityPosition('field-05',[14,0,15]);addCropPlot(field04[0],field04[2],11,8,'field-04','leafy');addCropPlot(field05[0],field05[2],9,7,'field-05','leafy')
+  tuneEnvironmentIntensity(scene)
   renderer.domElement.addEventListener('click',onClick);renderer.domElement.addEventListener('dblclick',onDoubleClick);renderer.domElement.addEventListener('pointermove',onPointerMove);renderer.domElement.addEventListener('pointerleave',clearHover);window.addEventListener('resize',resize);window.addEventListener('keydown',onKeyDown);window.addEventListener('keyup',onKeyUp);updateDayNight(true);loadPublicModels();animate();updateModuleLayers();setSelectionHelper(props.selectedId)
 }
 

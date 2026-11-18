@@ -20,8 +20,8 @@ export function buildEnvironment(scene:THREE.Scene, polygons:GroundPoint[][],sit
   const hull=lower.slice(0,-1).concat(upper.slice(0,-1)),extent=bounds(points),cx=(extent.minX+extent.maxX)/2,cz=(extent.minZ+extent.maxZ)/2
   const corners:GroundPoint[]=hull.map(([x,z])=>{const length=Math.hypot(x-cx,z-cz);return [x+(x-cx)/length*5,z+(z-cz)/length*5]})
   const outline=new THREE.Shape(corners.map(([x,z])=>new THREE.Vector2(x,-z))),baseGeometry=new THREE.ExtrudeGeometry(outline,{depth:.8,bevelEnabled:false});baseGeometry.rotateX(-Math.PI/2)
-  const base=new THREE.Mesh(baseGeometry,[materials.material(0xc6d0bd,'grass'),mat(0x7e995e)]);base.position.y=-.8;base.receiveShadow=true;scene.add(base)
-  corners.forEach((a,i)=>{const b=corners[(i+1)%corners.length];segment(a,b,2.5,.09,.12,0xe6d8ba);segment(a,b,.12,.12,1.2,0x8b9b8b);const n=Math.ceil(Math.hypot(b[0]-a[0],b[1]-a[1])/5);for(let j=0;j<n;j++){const t=j/n;box(.16,1.5,.16,a[0]+(b[0]-a[0])*t,.75,a[1]+(b[1]-a[1])*t,0x829782)}})
+  const base=new THREE.Mesh(baseGeometry,[materials.material(0xa8bd8b,'grass'),mat(0x6d8752)]);base.position.y=-.8;base.receiveShadow=true;scene.add(base)
+  corners.forEach((a,i)=>{const b=corners[(i+1)%corners.length];segment(a,b,1.25,.08,.1,0xc0b79c);segment(a,b,.1,.1,1.15,0x7e8c7c);const n=Math.ceil(Math.hypot(b[0]-a[0],b[1]-a[1])/5);for(let j=0;j<n;j++){const t=j/n;box(.16,1.5,.16,a[0]+(b[0]-a[0])*t,.75,a[1]+(b[1]-a[1])*t,0x829782)}})
   for(const polygon of polygons){const b=bounds(polygon);for(let z=b.minZ+2;z<b.maxZ;z+=4){let start:number|null=null;for(let x=b.minX;x<=b.maxX+.5;x+=.5){const hit=x<=b.maxX&&inside([x,z],polygon);if(hit&&start===null)start=x;if(!hit&&start!==null){segment([start,z],[x-.5,z],.055,.055,.25,0x304e45,irrigation);start=null}}}}
   // Canal banks and a service bridge follow the same image-space water corridor.
   const banks=[[[1535,469],[923,1024]],[[1535,676],[825,1024]]] as GroundPoint[][]

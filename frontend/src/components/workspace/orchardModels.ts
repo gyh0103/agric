@@ -35,30 +35,31 @@ export class ModelBuilder{
 }
 
 export function buildVegetation(polygon:GroundPoint[],kind:'pear'|'jujube'|'wheat',materials:OrchardMaterials){
-  const root=new THREE.Group(),wheat=kind==='wheat',points=grid(polygon,wheat?.68:4,wheat?6500:750),dummy=new THREE.Object3D(),color=new THREE.Color()
+  const root=new THREE.Group(),wheat=kind==='wheat',points=grid(polygon,wheat?.68:5.2,wheat?6500:420),dummy=new THREE.Object3D(),color=new THREE.Color()
   if(wheat){
     const stems=new THREE.InstancedMesh(new THREE.CylinderGeometry(.025,.033,1.05,4),materials.material(0xb7a868),points.length*3)
     const grains=new THREE.InstancedMesh(new THREE.SphereGeometry(.07,4,3),materials.material(0xd2b774),points.length*18)
     points.forEach(([x,z],i)=>{for(let k=0;k<3;k++){const px=x+(random(i*3+k)-.5)*.3,pz=z+(random(i*3+k+900)-.5)*.3,h=.8+random(i+30)*.35;dummy.position.set(px,h/2+.18,pz);dummy.rotation.set(.06*Math.sin(i),0,.06*Math.cos(i));dummy.scale.set(1,h,1);dummy.updateMatrix();stems.setMatrixAt(i*3+k,dummy.matrix);for(let n=0;n<6;n++){dummy.position.set(px+(n%2?-.045:.045),h+.18+n*.05,pz);dummy.scale.set(.65,1.2,.6);dummy.updateMatrix();grains.setMatrixAt(i*18+k*6+n,dummy.matrix)}}});root.add(stems,grains);return {root,points:[] as GroundPoint[],occluders:[] as THREE.Object3D[]}
   }
   const trunks=new THREE.InstancedMesh(new THREE.CylinderGeometry(.12,.24,2,9),materials.material(0xd0c0a1,'bark'),points.length)
-  const branches=new THREE.InstancedMesh(new THREE.CylinderGeometry(.055,.1,1,7),materials.material(0xcbb89a,'bark'),points.length*7)
-  const foliageMat=materials.material(kind==='pear'?0x739352:0x577941);foliageMat.emissive.setHex(0x28461d);foliageMat.emissiveIntensity=.12
-  const clusters=new THREE.InstancedMesh(new THREE.IcosahedronGeometry(.58,1),foliageMat,points.length*12)
+  const branches=new THREE.InstancedMesh(new THREE.CylinderGeometry(.055,.1,1,7),materials.material(0xcbb89a,'bark'),points.length*5)
+  const foliageMat=materials.material(kind==='pear'?0x6a8c48:0x4b7038)
+  foliageMat.emissive.setHex(0x223d18);foliageMat.emissiveIntensity=.1
+  const clusters=new THREE.InstancedMesh(new THREE.IcosahedronGeometry(.62,1),foliageMat,points.length*8)
   const leafGeometry=new THREE.PlaneGeometry(.43,.2,4,2),vertices=leafGeometry.attributes.position
   for(let i=0;i<vertices.count;i++){const x=vertices.getX(i);vertices.setY(i,vertices.getY(i)*Math.max(.08,Math.sin((x/.43+.5)*Math.PI)));vertices.setZ(i,.04*Math.cos(x/.43*Math.PI))}leafGeometry.computeVertexNormals()
-  const leafMat=materials.material(kind==='pear'?0x96b469:0x7d9b4b);leafMat.side=THREE.DoubleSide;leafMat.onBeforeCompile=shader=>{shader.uniforms.orchardWind=materials.wind;shader.vertexShader='uniform float orchardWind;\n'+shader.vertexShader;shader.vertexShader=shader.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\n transformed.z += sin(orchardWind + instanceMatrix[3].x * 1.7 + position.x * 3.0) * 0.025;')};leafMat.customProgramCacheKey=()=> 'orchard-leaf-wind-v1' 
-  const leaves=new THREE.InstancedMesh(leafGeometry,leafMat,points.length*100)
+  const leafMat=materials.material(kind==='pear'?0x9cbb6c:0x86a44e);leafMat.side=THREE.DoubleSide;leafMat.onBeforeCompile=shader=>{shader.uniforms.orchardWind=materials.wind;shader.vertexShader='uniform float orchardWind;\n'+shader.vertexShader;shader.vertexShader=shader.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\n transformed.z += sin(orchardWind + instanceMatrix[3].x * 1.7 + position.x * 3.0) * 0.025;')};leafMat.customProgramCacheKey=()=> 'orchard-leaf-wind-v1' 
+  const leaves=new THREE.InstancedMesh(leafGeometry,leafMat,points.length*42)
   const fruitGeometry=kind==='pear'?new THREE.LatheGeometry([[0,0],[.11,.03],[.21,.14],[.22,.27],[.15,.4],[.08,.51],[.04,.56],[0,.56]].map(([x,y])=>new THREE.Vector2(x,y)),14):new THREE.SphereGeometry(.115,8,6)
-  const fruits=new THREE.InstancedMesh(fruitGeometry,materials.material(kind==='pear'?0xfff3c2:0xa34531,kind==='pear'?'fruit':undefined),points.length*8)
-  const stalks=new THREE.InstancedMesh(new THREE.CylinderGeometry(.017,.023,.17,5),materials.material(0x77603b),points.length*8)
+  const fruits=new THREE.InstancedMesh(fruitGeometry,materials.material(kind==='pear'?0xfff3c2:0xa34531,kind==='pear'?'fruit':undefined),points.length*5)
+  const stalks=new THREE.InstancedMesh(new THREE.CylinderGeometry(.017,.023,.17,5),materials.material(0x77603b),points.length*5)
   const align=new THREE.Quaternion(),axis=new THREE.Vector3(0,1,0)
   points.forEach(([x,z],i)=>{
     const scale=.88+random(i+200)*.24;dummy.rotation.set(0,i*2.4,0);dummy.position.set(x,1.17,z);dummy.scale.set(scale,1,scale);dummy.updateMatrix();trunks.setMatrixAt(i,dummy.matrix)
-    for(let k=0;k<7;k++){const angle=k*2.4+i*.3,start=new THREE.Vector3(x,1.65+k*.11,z),end=new THREE.Vector3(x+Math.sin(angle)*1.35,2.7+(k%3)*.38,z+Math.cos(angle)*1.35),vector=end.clone().sub(start);align.setFromUnitVectors(axis,vector.clone().normalize());dummy.quaternion.copy(align);dummy.position.copy(start.add(end).multiplyScalar(.5));dummy.scale.set(1,vector.length(),1);dummy.updateMatrix();branches.setMatrixAt(i*7+k,dummy.matrix)}
-    for(let k=0;k<12;k++){const angle=k*2.4+i*.31,radius=k<3?.35:1.05;dummy.rotation.set(random(k+i)*.7,angle,.2);dummy.position.set(x+Math.sin(angle)*radius,2.7+(k%4)*.32,z+Math.cos(angle)*radius);dummy.scale.set(.9+random(i+k)*.4,.75+random(i+k+9)*.5,1);dummy.updateMatrix();clusters.setMatrixAt(i*12+k,dummy.matrix);color.setHex(kind==='pear'?0x739352:0x577941).multiplyScalar(.8+random(i*12+k)*.4);clusters.setColorAt(i*12+k,color)}
-    for(let k=0;k<100;k++){const angle=k*2.399963+i*.31,radius=.75+random(i*100+k)*.9;dummy.position.set(x+Math.sin(angle)*radius,2.5+random(i*100+k+800)*1.35,z+Math.cos(angle)*radius);dummy.rotation.set(random(k+i)*Math.PI,angle,random(k+95)*1.1);dummy.scale.setScalar(.8+random(k+i+900)*.6);dummy.updateMatrix();leaves.setMatrixAt(i*100+k,dummy.matrix);color.setHex(0xffffff).multiplyScalar(.78+random(k+i)*.35);leaves.setColorAt(i*100+k,color)}
-    for(let k=0;k<8;k++){const angle=k*2.4+i*.31,radius=1.15+random(i+k)*.25,px=x+Math.sin(angle)*radius,pz=z+Math.cos(angle)*radius,py=2.25+random(i*8+k)*.65;dummy.rotation.set(0,angle,.12*Math.sin(k));dummy.scale.setScalar(.8+random(i+k)*.35);dummy.position.set(px,py,pz);dummy.updateMatrix();fruits.setMatrixAt(i*8+k,dummy.matrix);dummy.position.set(px,py+(kind==='pear'?.59:.17),pz);dummy.scale.set(1,1,1);dummy.updateMatrix();stalks.setMatrixAt(i*8+k,dummy.matrix)}
+    for(let k=0;k<5;k++){const angle=k*2.4+i*.3,start=new THREE.Vector3(x,1.65+k*.11,z),end=new THREE.Vector3(x+Math.sin(angle)*1.35,2.7+(k%3)*.38,z+Math.cos(angle)*1.35),vector=end.clone().sub(start);align.setFromUnitVectors(axis,vector.clone().normalize());dummy.quaternion.copy(align);dummy.position.copy(start.add(end).multiplyScalar(.5));dummy.scale.set(1,vector.length(),1);dummy.updateMatrix();branches.setMatrixAt(i*5+k,dummy.matrix)}
+    for(let k=0;k<8;k++){const angle=k*2.4+i*.31,radius=k<2?.32:1.02;dummy.rotation.set(random(k+i)*.7,angle,.2);dummy.position.set(x+Math.sin(angle)*radius,2.7+(k%4)*.34,z+Math.cos(angle)*radius);dummy.scale.set(1+random(i+k)*.34,.85+random(i+k+9)*.45,1.1);dummy.updateMatrix();clusters.setMatrixAt(i*8+k,dummy.matrix);color.setHex(kind==='pear'?0x6a8c48:0x4b7038).multiplyScalar(.78+random(i*12+k)*.42);clusters.setColorAt(i*8+k,color)}
+    for(let k=0;k<42;k++){const angle=k*2.399963+i*.31,radius=.72+random(i*100+k)*.95;dummy.position.set(x+Math.sin(angle)*radius,2.5+random(i*100+k+800)*1.35,z+Math.cos(angle)*radius);dummy.rotation.set(random(k+i)*Math.PI,angle,random(k+95)*1.1);dummy.scale.setScalar(.85+random(k+i+900)*.6);dummy.updateMatrix();leaves.setMatrixAt(i*42+k,dummy.matrix);color.setHex(0xffffff).multiplyScalar(.75+random(k+i)*.4);leaves.setColorAt(i*42+k,color)}
+    for(let k=0;k<5;k++){const angle=k*2.4+i*.31,radius=1.15+random(i+k)*.25,px=x+Math.sin(angle)*radius,pz=z+Math.cos(angle)*radius,py=2.25+random(i*8+k)*.65;dummy.rotation.set(0,angle,.12*Math.sin(k));dummy.scale.setScalar(.8+random(i+k)*.35);dummy.position.set(px,py,pz);dummy.updateMatrix();fruits.setMatrixAt(i*5+k,dummy.matrix);dummy.position.set(px,py+(kind==='pear'?.59:.17),pz);dummy.scale.set(1,1,1);dummy.updateMatrix();stalks.setMatrixAt(i*5+k,dummy.matrix)}
   })
   trunks.castShadow=branches.castShadow=clusters.castShadow=true;root.add(trunks,branches,clusters,leaves,fruits,stalks)
   return {root,points,occluders:[clusters] as THREE.Object3D[]}
