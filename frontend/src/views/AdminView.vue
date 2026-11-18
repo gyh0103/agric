@@ -310,6 +310,63 @@ const farmSummary = ref<DashboardSnapshot['summary'] | null>(null)
 const metricCharts = ref<Record<string, { metricKey: string; points: { label: string; value: number; unit: string }[] }>>({})
 let weatherTimer: ReturnType<typeof setInterval> | undefined
 
+// 天气位置设置（从系统配置迁到天气与环境页签）
+const weatherLocForm = ref({ city: '', latitude: '', longitude: '' })
+const weatherLocLoading = ref(false)
+const weatherLocSaving = ref(false)
+
+async function loadWeatherLocation() {
+  weatherLocLoading.value = true
+  try {
+    const data = await fetchSettings()
+    const read = (k: string) => data.items.find(i => i.key === k)?.value ?? ''
+    weatherLocForm.value = {
+      city: read('weather.city'),
+      latitude: read('weather.latitude'),
+      longitude: read('weather.longitude'),
+    }
+  } catch (e) {
+    fail(e)
+  } finally {
+    weatherLocLoading.value = false
+  }
+}
+
+async function saveWeatherLocation() {
+  weatherLocSaving.value = true
+  try {
+    const lat = parseFloat(weatherLocForm.value.latitude.trim())
+    const lon = parseFloat(weatherLocForm.value.longitude.trim())
+    if (Number.isNaN(lat) || lat < 18 || lat > 54) throw new Error('纬度需在 18 ~ 54 之间')
+    if (Number.isNaN(lon) || lon < 73 || lon > 135) throw new Error('经度需在 73 ~ 135 之间')
+    await saveSettings({
+      'weather.city': weatherLocForm.value.city.trim() || '张掖',
+      'weather.latitude': String(lat),
+      'weather.longitude': String(lon),
+    })
+    flash('天气位置已更新，立即刷新')
+    await loadWeatherLocation()
+    await loadWeather()
+  } catch (e) {
+    fail(e)
+  } finally {
+    weatherLocSaving.value = false
+  }
+}
+
+// 常用河西走廊位置一键填充
+const PRESET_CITIES: { city: string; lat: string; lon: string }[] = [
+  { city: '张掖', lat: '38.9262', lon: '100.4484' },
+  { city: '酒泉', lat: '39.7392', lon: '98.4941' },
+  { city: '武威', lat: '37.9284', lon: '102.6397' },
+  { city: '金昌', lat: '38.5157', lon: '102.1870' },
+  { city: '嘉峪关', lat: '39.7726', lon: '98.2894' },
+  { city: '敦煌', lat: '40.1531', lon: '94.6626' },
+]
+function applyPreset(c: typeof PRESET_CITIES[number]) {
+  weatherLocForm.value = { city: c.city, latitude: c.lat, longitude: c.lon }
+}
+
 function weatherText(code: number) {
   // WMO weather interpretation codes
   const map: Record<number, string> = {
@@ -451,8 +508,7 @@ async function switchTab(next: Tab) {
   if (next === 'plots') await loadPlots()
   if (next === 'devices') await loadDevices()
   if (next === 'weather') {
-    await loadWeather()
-    await loadMetrics()
+    await Promise.all([loadWeather(), loadMetrics(), loadWeatherLocation()])
   }
 }
 
@@ -830,9 +886,25 @@ onBeforeUnmount(stopWeatherPolling)
       <div class="vision-head">
         <div>
           <h2>天气与环境</h2>
-          <p>实时数据每 60 秒刷新一次；天气来源 Open‑Meteo（张掖 38.07°N, 116.57°E），环境传感器来自田间自动采集。</p>
+          <p>实时数据每 60 秒刷新一次；天气来源 Open‑Meteo，位置可在下方自定义。</p>
         </div>
         <button class="primary" :disabled="loading" @click="refreshAll">{{ loading ? '刷新中…' : '立即刷新' }}</button>
+      </div>
+
+      <div class="weather-loc-card">
+        <div class="weather-loc-head">
+          <strong>天气位置设置</strong>
+          <span class="muted small">保存后立即生效，无需重启服务器</span>
+        </div>
+        <div class="preset-row">
+          <button v-for="c in PRESET_CITIES" :key="c.city" :class="{ active: weatherLocForm.city === c.city }" @click="applyPreset(c)">{{ c.city }}</button>
+        </div>
+        <div class="form-grid compact">
+          <label><span>位置名称</span><input :value="weatherLocForm.city" @input="weatherLocForm.city = ($event.target as HTMLInputElement).value" placeholder="如 张掖 / 酒泉 / 武威" /></label>
+          <label><span>纬度（WGS84）</span><input :value="weatherLocForm.latitude" @input="weatherLocForm.latitude = ($event.target as HTMLInputElement).value" placeholder="18 ~ 54" /></label>
+          <label><span>经度（WGS84）</span><input :value="weatherLocForm.longitude" @input="weatherLocForm.longitude = ($event.target as HTMLInputElement).value" placeholder="73 ~ 135" /></label>
+          <div class="actions"><button class="primary" :disabled="weatherLocSaving || weatherLocLoading" @click="saveWeatherLocation">{{ weatherLocSaving ? '保存中…' : '保存位置' }}</button></div>
+        </div>
       </div>
 
       <div class="weather-grid">
@@ -1032,4 +1104,16 @@ td.clamp { max-width: 320px; overflow: hidden; text-overflow: ellipsis; }
 .metric-time { font-size: 10px; color: #93a79a; }
 
 .placeholder.wide { grid-column: 1 / -1; }
+
+/* 天气位置设置卡片 */
+.weather-loc-card { border: 1px solid #d5e2d8; border-radius: 12px; background: #f5faf5; padding: 16px 18px 14px; margin-bottom: 18px; }
+.weather-loc-head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 10px; }
+.weather-loc-head strong { font-size: 13px; color: #2f5d3d; }
+.preset-row { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
+.preset-row button { border: 1px solid #cfe0d2; background: #fff; padding: 5px 12px; border-radius: 16px; font-size: 12px; color: #3e7c4f; cursor: pointer; transition: .15s; }
+.preset-row button:hover { background: #e6f3e9; }
+.preset-row button.active { background: #3e7c4f; color: #fff; border-color: #3e7c4f; }
+.form-grid.compact { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px 14px; }
+.form-grid.compact label input { padding: 8px 10px; font-size: 13px; }
+.form-grid.compact .actions { grid-column: auto; align-self: end; }
 </style>
