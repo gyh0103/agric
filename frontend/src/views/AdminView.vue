@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, onBeforeUnmount, reactive, ref } from 'vue'
 import {
   createAdminCrop,
   createAdminDisease,
@@ -25,10 +25,18 @@ import {
   type AdminUser,
   type SettingItem
 } from '@/api/admin'
-import { createFarmDevice, deleteFarmDevice, fetchDashboard, setDeviceEnabled, updateFarmDevice } from '@/api/dashboard'
-import type { DeviceInput, DeviceRecord } from '@/types'
+import {
+  createFarmDevice,
+  deleteFarmDevice,
+  fetchDashboard,
+  fetchObservationHistory,
+  setDeviceEnabled,
+  updateFarmDevice
+} from '@/api/dashboard'
+import { fetchLiveWeather, type LiveWeather } from '@/api/weather'
+import type { DashboardSnapshot, DeviceInput, DeviceRecord } from '@/types'
 
-type Tab = 'overview' | 'users' | 'settings' | 'crops' | 'diseases' | 'plots' | 'devices'
+type Tab = 'overview' | 'users' | 'settings' | 'crops' | 'diseases' | 'plots' | 'devices' | 'weather'
 
 const tab = ref<Tab>('overview')
 const overview = ref<AdminOverview | null>(null)
@@ -292,6 +300,96 @@ async function removeDevice(item: DeviceRecord) {
   }
 }
 
+// ---------- 天气与环境 ----------
+const weather = ref<LiveWeather | null>(null)
+const weatherError = ref('')
+const metrics = ref<DashboardSnapshot['environmentMetrics']>([])
+const alerts = ref<DashboardSnapshot['alerts']>([])
+const irrigationUnits = ref<DashboardSnapshot['irrigationUnits']>([])
+const farmSummary = ref<DashboardSnapshot['summary'] | null>(null)
+const metricCharts = ref<Record<string, { metricKey: string; points: { label: string; value: number; unit: string }[] }>>({})
+let weatherTimer: ReturnType<typeof setInterval> | undefined
+
+function weatherText(code: number) {
+  // WMO weather interpretation codes
+  const map: Record<number, string> = {
+    0: '晴', 1: '大部晴朗', 2: '局部多云', 3: '阴天',
+    45: '雾', 48: '冻雾',
+    51: '小毛毛雨', 53: '毛毛雨', 55: '强毛毛雨',
+    61: '小雨', 63: '中雨', 65: '大雨',
+    71: '小雪', 73: '中雪', 75: '大雪',
+    80: '阵雨', 81: '阵雨', 82: '强阵雨',
+    95: '雷暴', 96: '雷暴伴冰雹', 99: '强雷暴伴冰雹'
+  }
+  return map[code] ?? `天气代码 ${code}`
+}
+
+async function loadWeather() {
+  try {
+    weather.value = await fetchLiveWeather()
+    weatherError.value = ''
+  } catch (e) {
+    weatherError.value = (e as Error).message
+  }
+}
+
+async function loadMetrics() {
+  try {
+    const snap = await fetchDashboard('zhangye-01')
+    metrics.value = snap.environmentMetrics || []
+    alerts.value = snap.alerts || []
+    irrigationUnits.value = snap.irrigationUnits || []
+    farmSummary.value = snap.summary || null
+    // 拉每个指标最近 12 个观测点，用于迷你曲线
+    const topKeys = (snap.environmentMetrics || []).slice(0, 6).map(m => m.key)
+    const results = await Promise.all(topKeys.map(async key => {
+      try {
+        const hist = await fetchObservationHistory(key, 'zhangye-01')
+        return [key, { metricKey: key, points: hist.points.slice(-12).map(p => ({ label: p.label, value: p.value, unit: p.unit })) }] as const
+      } catch { return [key, { metricKey: key, points: [] }] as const }
+    }))
+    metricCharts.value = Object.fromEntries(results)
+  } catch (e) {
+    fail(e)
+  }
+}
+
+async function refreshAll() {
+  loading.value = true
+  try {
+    await Promise.all([loadWeather(), loadMetrics()])
+  } finally {
+    loading.value = false
+  }
+}
+
+async function startWeatherPolling() {
+  await loadWeather()
+  await loadMetrics()
+  stopWeatherPolling()
+  weatherTimer = setInterval(async () => {
+    await loadWeather()
+    if (tab.value === 'weather') await loadMetrics()
+  }, 60000)
+}
+
+function stopWeatherPolling() {
+  if (weatherTimer) { clearInterval(weatherTimer); weatherTimer = undefined }
+}
+
+function miniChartPoints(metricKey: string) {
+  const series = metricCharts.value[metricKey]?.points
+  if (!series || series.length < 2) return ''
+  const vals = series.map(p => p.value)
+  const vMin = Math.min(...vals), vMax = Math.max(...vals)
+  const range = Math.max(vMax - vMin, 0.0001)
+  return series.map((p, i) => {
+    const x = (i / (series.length - 1)) * 116 + 2
+    const y = 32 - ((p.value - vMin) / range) * 28
+    return `${x.toFixed(1)},${y.toFixed(1)}`
+  }).join(' ')
+}
+
 function flash(text: string) {
   notice.value = text
   error.value = ''
@@ -352,6 +450,10 @@ async function switchTab(next: Tab) {
   if (next === 'diseases') await loadDiseases()
   if (next === 'plots') await loadPlots()
   if (next === 'devices') await loadDevices()
+  if (next === 'weather') {
+    await loadWeather()
+    await loadMetrics()
+  }
 }
 
 async function toggleRole(user: AdminUser) {
@@ -420,7 +522,11 @@ async function submitSettings() {
   }
 }
 
-onMounted(loadOverview)
+onMounted(async () => {
+  await loadOverview()
+  startWeatherPolling()
+})
+onBeforeUnmount(stopWeatherPolling)
 </script>
 
 <template>
@@ -443,6 +549,7 @@ onMounted(loadOverview)
       <button :class="{ active: tab === 'diseases' }" @click="switchTab('diseases')">病害知识库</button>
       <button :class="{ active: tab === 'plots' }" @click="switchTab('plots')">地块</button>
       <button :class="{ active: tab === 'devices' }" @click="switchTab('devices')">设备</button>
+      <button :class="{ active: tab === 'weather' }" @click="switchTab('weather')">天气与环境</button>
       <button :class="{ active: tab === 'settings' }" @click="switchTab('settings')">系统配置</button>
     </nav>
 
@@ -718,6 +825,97 @@ onMounted(loadOverview)
         </table>
       </div>
     </section>
+
+    <section v-if="tab === 'weather'" class="panel">
+      <div class="vision-head">
+        <div>
+          <h2>天气与环境</h2>
+          <p>实时数据每 60 秒刷新一次；天气来源 Open‑Meteo（张掖 38.07°N, 116.57°E），环境传感器来自田间自动采集。</p>
+        </div>
+        <button class="primary" :disabled="loading" @click="refreshAll">{{ loading ? '刷新中…' : '立即刷新' }}</button>
+      </div>
+
+      <div class="weather-grid">
+        <div class="weather-card">
+          <small class="src">{{ weather?.source || 'Open‑Meteo' }} · {{ weather?.observedAt ? new Date(weather.observedAt).toLocaleString('zh-CN') : '加载中' }}</small>
+          <div class="weather-main">
+            <strong class="temp">{{ weather ? weather.temperature.toFixed(1) : '—' }}°C</strong>
+            <span class="state">{{ weather ? weatherText(weather.weatherCode) : '—' }}</span>
+          </div>
+          <div class="weather-stats">
+            <div><span>湿度</span><strong>{{ weather ? weather.humidity.toFixed(0) : '—' }}%</strong></div>
+            <div><span>风速</span><strong>{{ weather ? weather.windSpeed.toFixed(1) : '—' }} m/s</strong></div>
+            <div><span>辐照</span><strong>{{ weather ? weather.radiation.toFixed(0) : '—' }} W/m²</strong></div>
+          </div>
+          <p v-if="weatherError" class="error small">{{ weatherError }}</p>
+        </div>
+
+        <div v-if="farmSummary" class="farm-card">
+          <h3>农场总览</h3>
+          <ul>
+            <li><span>健康度</span><strong>{{ farmSummary.health }}</strong></li>
+            <li><span>设备</span><strong>{{ farmSummary.onlineDevices }}/{{ farmSummary.totalDevices }} 在线</strong></li>
+            <li><span>运行中</span><strong>{{ farmSummary.runningDevices }}</strong></li>
+            <li><span>水位</span><strong>{{ farmSummary.waterLevel.toFixed(1) }} m</strong></li>
+            <li><span>今日用水</span><strong>{{ farmSummary.todayWaterUsage.toFixed(0) }} m³</strong></li>
+            <li><span>待处理告警</span><strong :class="farmSummary.openAlerts > 0 ? 'warn' : ''">{{ farmSummary.openAlerts }}</strong></li>
+          </ul>
+        </div>
+      </div>
+
+      <h3 class="section-title">环境传感器</h3>
+      <div class="metric-grid">
+        <article v-for="m in metrics" :key="m.key" class="metric-card" :class="'tone-' + m.tone">
+          <div class="metric-top">
+            <span class="metric-label">{{ m.label }}</span>
+            <span class="metric-delta" :class="(m.delta || '').startsWith('+') ? 'up' : (m.delta || '').startsWith('-') ? 'down' : ''">{{ m.delta || '—' }}</span>
+          </div>
+          <div class="metric-body">
+            <strong class="metric-value">{{ m.numericValue.toFixed(m.numericValue % 1 === 0 ? 0 : 1) }}</strong>
+            <span class="metric-unit">{{ m.unit }}</span>
+          </div>
+          <svg v-if="metricCharts[m.key]?.points.length > 1" class="mini-chart" viewBox="0 0 120 36" preserveAspectRatio="none" aria-hidden="true">
+            <polyline fill="none" stroke="#3e7c4f" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"
+              :points="miniChartPoints(m.key)" />
+          </svg>
+          <small class="metric-time">更新于 {{ m.measuredAt ? new Date(m.measuredAt).toLocaleTimeString('zh-CN') : '—' }}</small>
+        </article>
+        <div v-if="!metrics.length" class="placeholder wide">暂未采集到环境数据</div>
+      </div>
+
+      <h3 class="section-title">告警</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>时间</th><th>标题</th><th>级别</th><th>状态</th><th>关联实体</th></tr></thead>
+          <tbody>
+            <tr v-for="a in alerts" :key="a.id">
+              <td class="muted">{{ a.time }}</td>
+              <td>{{ a.title }}</td>
+              <td><span class="pill" :class="'pill-' + ({ high: 'warn', medium: 'warn', low: '' } as Record<string,string>)[a.level]">{{ a.level }}</span></td>
+              <td><span class="pill" :class="a.status === 'handled' ? 'pill-off' : 'pill-ok'">{{ a.status }}</span></td>
+              <td class="muted">{{ a.entityId }}</td>
+            </tr>
+            <tr v-if="!alerts.length"><td colspan="5" class="placeholder">当前无告警</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3 class="section-title">灌溉单元</h3>
+      <div class="irrigation-grid">
+        <div v-for="u in irrigationUnits" :key="u.id" class="metric-card" :class="u.enabled ? 'tone-ok' : 'tone-off'">
+          <div class="metric-top">
+            <span class="metric-label">{{ u.name }}</span>
+            <span class="pill" :class="u.enabled ? 'pill-ok' : 'pill-off'">{{ u.enabled ? '运行中' : '已关闭' }}</span>
+          </div>
+          <div class="metric-body">
+            <strong class="metric-value">{{ u.flow }}</strong>
+            <span class="metric-unit">{{ u.kind }} · {{ u.durationMinutes }} min</span>
+          </div>
+          <small class="metric-time">目标：{{ u.target }}</small>
+        </div>
+        <div v-if="!irrigationUnits.length" class="placeholder wide">没有灌溉单元</div>
+      </div>
+    </section>
   </div>
 </template>
 
@@ -791,4 +989,47 @@ td.ops button.danger { color: #a94442; border-color: #f0d3d1; }
 .actions.wide { grid-column: 1 / -1; margin-top: 4px; }
 .toolbar select { padding: 9px 12px; border: 1px solid #dbe6dd; border-radius: 9px; font: inherit; font-size: 13px; background: #fff; }
 td.clamp { max-width: 320px; overflow: hidden; text-overflow: ellipsis; }
+
+.weather-grid { display: grid; grid-template-columns: 1.4fr 1fr; gap: 16px; margin-bottom: 24px; }
+@media (max-width: 720px) { .weather-grid { grid-template-columns: 1fr; } }
+.weather-card, .farm-card { border-radius: 14px; padding: 22px; background: linear-gradient(135deg, #edf5ee 0%, #f7faf7 100%); border: 1px solid #dbe6dd; }
+.weather-card .src { color: #7b9184; font-size: 11px; }
+.weather-main { display: flex; align-items: center; gap: 12px; margin: 10px 0 14px; }
+.weather-main .temp { font-size: 56px; font-weight: 600; letter-spacing: -0.03em; color: #275434; line-height: 1; }
+.weather-main .state { font-size: 15px; color: #3e6f4c; }
+.weather-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.weather-stats > div { background: rgba(255,255,255,0.7); border-radius: 10px; padding: 10px 12px; display: flex; flex-direction: column; gap: 4px; }
+.weather-stats span { font-size: 11px; color: #7b9184; }
+.weather-stats strong { font-size: 16px; color: #275434; }
+.weather-card .error.small { margin-top: 12px; font-size: 11px; }
+
+.farm-card { background: #fff; }
+.farm-card h3 { margin: 0 0 12px; font-size: 14px; color: #275434; }
+.farm-card ul { margin: 0; padding: 0; list-style: none; display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+.farm-card li { background: #f7faf7; border-radius: 9px; padding: 9px 12px; display: flex; flex-direction: column; gap: 3px; }
+.farm-card li span { font-size: 11px; color: #7b9184; }
+.farm-card li strong { font-size: 14px; color: #275434; }
+.farm-card li strong.warn { color: #b4762a; }
+
+.section-title { margin: 22px 0 12px; font-size: 14px; color: #275434; font-weight: 600; }
+
+.metric-grid, .irrigation-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom: 22px; }
+.metric-card { border-radius: 12px; padding: 14px 16px; background: #fff; border: 1px solid #e6ede7; display: flex; flex-direction: column; gap: 8px; }
+.metric-card.tone-good { border-color: #c8e3d0; background: #f2faf3; }
+.metric-card.tone-warn { border-color: #efe0b9; background: #fdf9ef; }
+.metric-card.tone-alert { border-color: #f0c0bc; background: #fef0ef; }
+.metric-card.tone-ok { border-color: #c8e3d0; background: #f2faf3; }
+.metric-card.tone-off { border-color: #e0d6c2; background: #f7f4ee; }
+.metric-top { display: flex; align-items: center; justify-content: space-between; }
+.metric-label { font-size: 12px; color: #5f7769; font-weight: 600; }
+.metric-delta { font-size: 11px; color: #8ea396; }
+.metric-delta.up { color: #b45a2a; }
+.metric-delta.down { color: #2f7a45; }
+.metric-body { display: flex; align-items: baseline; gap: 6px; }
+.metric-value { font-size: 28px; font-weight: 600; color: #1e3a26; letter-spacing: -0.02em; }
+.metric-unit { font-size: 12px; color: #7b9184; }
+.mini-chart { width: 100%; height: 36px; }
+.metric-time { font-size: 10px; color: #93a79a; }
+
+.placeholder.wide { grid-column: 1 / -1; }
 </style>
