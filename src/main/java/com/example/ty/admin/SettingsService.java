@@ -26,6 +26,9 @@ public class SettingsService {
     public static final String VISION_MAX_EDGE = "vision.cloud.max-edge";
     public static final String SENSOR_SIMULATED = "sensor.simulated";
     public static final String SENSOR_INGEST_SECRET = "sensor.ingest-secret";
+    public static final String WEATHER_LATITUDE = "weather.latitude";
+    public static final String WEATHER_LONGITUDE = "weather.longitude";
+    public static final String WEATHER_CITY = "weather.city";
 
     private final AppSettingRepository repo;
 
@@ -53,6 +56,12 @@ public class SettingsService {
     private String defaultSensorSimulated;
     @Value("${SENSOR_INGEST_SECRET:}")
     private String defaultSensorIngestSecret;
+    @Value("${WEATHER_LATITUDE:38.9262}")
+    private String defaultWeatherLatitude;
+    @Value("${WEATHER_LONGITUDE:100.4484}")
+    private String defaultWeatherLongitude;
+    @Value("${WEATHER_CITY:张掖}")
+    private String defaultWeatherCity;
 
     /** 环境变量（或内置默认）值，作为数据库未覆盖时的兜底 */
     public String envDefault(String key) {
@@ -69,6 +78,9 @@ public class SettingsService {
             case VISION_MAX_EDGE -> defaultVisionMaxEdge;
             case SENSOR_SIMULATED -> defaultSensorSimulated;
             case SENSOR_INGEST_SECRET -> defaultSensorIngestSecret;
+            case WEATHER_LATITUDE -> defaultWeatherLatitude;
+            case WEATHER_LONGITUDE -> defaultWeatherLongitude;
+            case WEATHER_CITY -> defaultWeatherCity;
             default -> "";
         };
     }

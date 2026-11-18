@@ -10,6 +10,7 @@ export interface LiveWeather {
   windSpeed: number
   radiation: number
   weatherCode: number
+  cityLabel?: string
 }
 
 export async function fetchLiveWeather(signal?: AbortSignal) {

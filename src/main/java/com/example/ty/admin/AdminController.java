@@ -36,7 +36,8 @@ public class AdminController {
             SettingsService.VISION_MODEL, SettingsService.VISION_TIMEOUT,
             SettingsService.AGENT_BASE_URL, SettingsService.AGENT_API_KEY, SettingsService.AGENT_MODEL,
             SettingsService.VISION_PROMPT, SettingsService.AGENT_PROMPT, SettingsService.VISION_MAX_EDGE,
-            SettingsService.SENSOR_SIMULATED, SettingsService.SENSOR_INGEST_SECRET);
+            SettingsService.SENSOR_SIMULATED, SettingsService.SENSOR_INGEST_SECRET,
+            SettingsService.WEATHER_LATITUDE, SettingsService.WEATHER_LONGITUDE, SettingsService.WEATHER_CITY);
 
     private final UserRepository users;
     private final OperationRepository operations;
@@ -182,6 +183,9 @@ public class AdminController {
         items.add(settingItem(SettingsService.VISION_MAX_EDGE, "图片最长边（像素）", false, "上传图片压缩后的最长边，640 ~ 2048，默认 1280"));
         items.add(settingItem(SettingsService.SENSOR_SIMULATED, "开启模拟传感器", false, "true = 每 30 秒自动生成模拟读数（默认）；false = 等待真实传感器 /api/sensor/ingest 上报。立即生效，无需重启"));
         items.add(settingItem(SettingsService.SENSOR_INGEST_SECRET, "传感器上报密钥", true, "留空表示不校验；填写后，/api/sensor/ingest 请求必须在 JSON 里带上 \"secret\" 字段。立即生效"));
+        items.add(settingItem(SettingsService.WEATHER_CITY, "天气位置名称", false, "如 张掖 / 酒泉 / 武威，仅用于页面显示"));
+        items.add(settingItem(SettingsService.WEATHER_LATITUDE, "天气纬度", false, "Open-Meteo 气象站纬度，中国境内有效范围 18.22 ~ 53.56"));
+        items.add(settingItem(SettingsService.WEATHER_LONGITUDE, "天气经度", false, "Open-Meteo 气象站经度，中国境内有效范围 73.55 ~ 134.76"));
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("items", items);
         body.put("visionConfigured", vision.configured());

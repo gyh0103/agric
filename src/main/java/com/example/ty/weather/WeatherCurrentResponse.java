@@ -9,5 +9,6 @@ public record WeatherCurrentResponse(
         double humidity,
         double windSpeed,
         double radiation,
-        int weatherCode
+        int weatherCode,
+        String cityLabel
 ) {}
