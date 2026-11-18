@@ -9,7 +9,11 @@ import java.util.*;
 @RestController @RequestMapping("/api/vision") @RequiredArgsConstructor
 public class VisionController {
     private final VisionService service;
+    private final CloudVisionService cloud;
     @GetMapping("/model") public Map<String,Object> model(){return service.model();}
+    @GetMapping("/cloud") public Map<String,Object> cloudStatus(){return cloud.status();}
+    @PostMapping(value="/analyze",consumes=MediaType.MULTIPART_FORM_DATA_VALUE)
+    public Map<String,Object> analyze(@RequestAttribute(AuthInterceptor.CURRENT_USER_ATTR) User user,@RequestParam(required=false) String crop,@RequestParam(required=false) String task,@RequestParam MultipartFile file){return cloud.analyze(crop,task,file);}
     @PostMapping("/jobs") @ResponseStatus(HttpStatus.ACCEPTED)
     public VisionService.View create(@RequestAttribute(AuthInterceptor.CURRENT_USER_ATTR) User user,@RequestParam String farmId,@RequestParam String plotId,@RequestParam MultipartFile file){return service.create(user.getId(),farmId,plotId,file);}
     @GetMapping("/jobs") public List<VisionService.View> list(@RequestAttribute(AuthInterceptor.CURRENT_USER_ATTR) User user,@RequestParam String farmId){return service.list(user.getId(),farmId);}

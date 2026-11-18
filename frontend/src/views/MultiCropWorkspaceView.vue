@@ -1,10 +1,6 @@
 <script setup lang="ts">
-import {computed} from 'vue'
-import {useRoute} from 'vue-router'
-const route=useRoute()
-const crop=computed(()=>['pear','wheat','jujube','vegetable'].includes(String(route.query.crop))?String(route.query.crop):'pear')
-const extra=computed(()=>new URLSearchParams({entity:String(route.query.entity||''),question:String(route.query.question||'').slice(0,500)}).toString())
-const mode=computed(()=>route.query.mode==='knowledge'?'knowledge':'vision')
+import {useRouter} from 'vue-router'
+const router=useRouter()
 </script>
-<template><section class="multicrop-frame"><iframe :src="`/multicrop/index.html?crop=${crop}&mode=${mode}&${extra}`" title="多作物视觉与知识工作台"/></section></template>
-<style scoped>.multicrop-frame{height:100dvh;min-height:600px;padding-top:68px;box-sizing:border-box;background:var(--ui-bg,#f4f7f6)}iframe{display:block;border:0;width:100%;height:100%}</style>
+<template><section class="multicrop-notice"><div class="card"><span class="tag">已切换为云端识别</span><h1>多作物研判</h1><p>本机为 1 GB 内存的入门配置，无法运行本地病害模型与知识图谱服务。请前往工作台的「作物视觉」面板上传照片，由云端多模态模型完成识别。</p><ul><li>支持作物：制种玉米、马铃薯、酿酒葡萄、枸杞、蜜瓜、红枣、高原夏菜</li><li>识别输出：病害候选、置信度、可见症状、处置建议</li><li>识别结果仅供参考，不能替代田间诊断</li></ul><button @click="router.push('/workspaces/zhangye-01')">前往工作台识别 ↗</button><small>如需完整知识图谱问答，需要独立 GPU 节点，请联系管理员。</small></div></section></template>
+<style scoped>.multicrop-notice{min-height:100dvh;display:flex;align-items:center;justify-content:center;padding:100px 20px 40px;box-sizing:border-box;background:var(--ui-bg,#f4f7f6);font-family:var(--font-sans)}.card{max-width:620px;background:white;border:1px solid var(--ui-brand-soft);border-radius:18px;padding:38px;box-shadow:0 18px 50px rgba(24,68,45,.08)}.tag{display:inline-block;font-size:10px;letter-spacing:.08em;color:var(--ui-brand);background:var(--ui-brand-soft);border-radius:99px;padding:6px 12px}.card h1{font-size:26px;margin:18px 0 14px;color:var(--ui-ink)}.card p{font-size:13px;line-height:2;color:#6f8a79;margin:0 0 18px}.card ul{margin:0 0 22px;padding-left:20px;font-size:12px;line-height:2.1;color:#82998a}.card button{border:0;border-radius:10px;background:var(--ui-brand);color:white;font:inherit;font-size:12px;padding:13px 22px;cursor:pointer}.card small{display:block;margin-top:18px;font-size:10px;color:#9aafa1}</style>
