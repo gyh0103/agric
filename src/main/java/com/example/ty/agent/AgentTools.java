@@ -15,11 +15,14 @@ public class AgentTools {
     private final com.example.ty.vision.VisionService vision;
     private final com.example.ty.multicrop.MultiCropClient multicrop;
     public List<Map<String,Object>> schemas() {
-        return List.of(schema("get_business_records","读取本基地已保存的农事、生长、批次流转、灌排和告警模拟回执；只读",Map.of()),schema("get_farm_context","查询共享演示农场的当前环境、地块、设备与告警；数据是演示数据",Map.of()),
-            schema("query_crop_knowledge","读取指定作物的知识图谱与证据研判；番茄叶片症状和果实成熟度视觉识别可在作物工作台使用，本工具不执行图像推理",Map.of("crop",Map.of("type","string","enum",List.of("pear","wheat","jujube","vegetable")),"question",Map.of("type","string","description","最长500字的作物问题"))),
-            schema("retrieve_evidence","按关键词检索已有农业资料，返回可引用的来源；当前不是 GraphRAG",Map.of("query",Map.of("type","string","description","与用户问题相关的检索语句"))),
-            schema("analyze_environment","按已配置的土壤湿度阈值核验当前值，不计算病害概率",Map.of()),
-            schema("get_vision_records","读取当前用户在所选基地的已保存梨叶视觉记录，置信度不是病害概率",Map.of("recordId",Map.of("type","string","description","可选视觉记录 ID；留空读取最近记录"))));
+        return List.of(
+            schema("get_farm_context","查询当前基地的实时环境、地块、设备与告警概况",Map.of()),
+            schema("analyze_environment","核验环境指标是否越阈值（土壤湿度、温度等），不计算病害概率",Map.of()),
+            schema("get_business_records","读取本基地已保存的农事、生长、灌排和告警处置记录；只读",Map.of()),
+            schema("get_vision_records","读取当前用户在所选基地的已保存视觉记录（叶片检测等），置信度不是病害概率",Map.of("recordId",Map.of("type","string","description","可选视觉记录 ID；留空读取最近记录"))),
+            schema("query_crop_knowledge","读取指定作物的知识图谱与证据研判",Map.of("crop",Map.of("type","string","enum",List.of("制种玉米","马铃薯","酿酒葡萄","枸杞","蜜瓜","红枣","高原夏菜","小麦","油菜","番茄","黄瓜","辣椒","草莓","叶菜")),"question",Map.of("type","string","description","与作物相关的问题，最长500字"))),
+            schema("retrieve_evidence","按关键词检索农业资料与可引用来源",Map.of("query",Map.of("type","string","description","与用户问题相关的检索语句")))
+        );
     }
     private Map<String,Object> schema(String name,String description,Map<String,Object> properties) {
         return Map.of("type","function","function",Map.of("name",name,"description",description,"parameters",
