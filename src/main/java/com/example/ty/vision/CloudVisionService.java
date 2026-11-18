@@ -1,7 +1,7 @@
 package com.example.ty.vision;
 
+import com.example.ty.admin.SettingsService;
 import com.example.ty.auth.exception.BizException;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 import tools.jackson.databind.JsonNode;
@@ -17,37 +17,59 @@ import java.util.*;
 /**
  * 云端多模态病害识别。
  * 兼容 OpenAI Chat Completions 协议（阿里云百炼 / 火山方舟 / 智谱 / 任意自建网关）。
- * 未配置 VISION_CLOUD_API_KEY 时全部接口返回 503，不影响其余功能。
+ * 配置优先读取后台写入的数据库值，未配置时回落到环境变量；
+ * 两者都为空时接口返回 503，不影响其余功能。
  */
 @Service
 public class CloudVisionService {
-    @Value("${VISION_CLOUD_BASE_URL:https://dashscope.aliyuncs.com/compatible-mode/v1}") private String baseUrl;
-    @Value("${VISION_CLOUD_API_KEY:}") private String apiKey;
-    @Value("${VISION_CLOUD_MODEL:qwen-vl-plus}") private String model;
-    @Value("${VISION_CLOUD_TIMEOUT_SECONDS:60}") private int timeout;
+
     private final ObjectMapper json;
+    private final SettingsService settings;
     private final HttpClient http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10)).build();
 
-    public CloudVisionService(ObjectMapper json) {
+    public CloudVisionService(ObjectMapper json, SettingsService settings) {
         this.json = json;
+        this.settings = settings;
+    }
+
+    private String baseUrl() {
+        return settings.get(SettingsService.VISION_BASE_URL);
+    }
+
+    private String apiKey() {
+        return settings.get(SettingsService.VISION_API_KEY);
+    }
+
+    private String model() {
+        return settings.get(SettingsService.VISION_MODEL);
+    }
+
+    private int timeout() {
+        try {
+            int seconds = Integer.parseInt(settings.get(SettingsService.VISION_TIMEOUT).trim());
+            return Math.min(Math.max(seconds, 10), 300);
+        } catch (Exception e) {
+            return 60;
+        }
     }
 
     public boolean configured() {
-        return apiKey != null && !apiKey.isBlank();
+        String key = apiKey();
+        return key != null && !key.isBlank();
     }
 
     public Map<String, Object> status() {
-        return Map.of("enabled", configured(), "model", model,
-                "message", configured() ? "云端识别已启用" : "云端识别未配置：请设置 VISION_CLOUD_API_KEY");
+        return Map.of("enabled", configured(), "model", model(),
+                "message", configured() ? "云端识别已启用" : "云端识别未配置：请在后台管理填写 API Key");
     }
 
     public Map<String, Object> analyze(String crop, String task, MultipartFile upload) {
-        if (!configured()) throw new BizException("VISION_CLOUD_NOT_CONFIGURED", "云端识别尚未配置，请联系管理员填写 VISION_CLOUD_API_KEY", 503);
+        if (!configured()) throw new BizException("VISION_CLOUD_NOT_CONFIGURED", "云端识别尚未配置，请管理员在后台管理中填写 API Key", 503);
         if (upload == null || upload.isEmpty()) throw BizException.badRequest("请上传一张作物照片");
         if (upload.getSize() > 8 * 1024 * 1024) throw BizException.badRequest("图片不能超过 8 MB");
         String mime = Optional.ofNullable(upload.getContentType()).orElse("image/jpeg").toLowerCase(Locale.ROOT);
         if (!mime.startsWith("image/")) throw BizException.badRequest("仅支持 JPG、PNG、WEBP 图片");
-        int max = Math.min(Math.max(timeout, 10), 300);
+        String model = model();
         try {
             byte[] bytes = upload.getBytes();
             String dataUrl = "data:" + mime + ";base64," + Base64.getEncoder().encodeToString(bytes);
@@ -62,16 +84,16 @@ public class CloudVisionService {
                             )
                     ))
             );
-            HttpRequest request = HttpRequest.newBuilder(URI.create(baseUrl.replaceAll("/+$", "") + "/chat/completions"))
-                    .timeout(Duration.ofSeconds(max))
+            HttpRequest request = HttpRequest.newBuilder(URI.create(baseUrl().replaceAll("/+$", "") + "/chat/completions"))
+                    .timeout(Duration.ofSeconds(timeout()))
                     .header("Content-Type", "application/json")
-                    .header("Authorization", "Bearer " + apiKey)
+                    .header("Authorization", "Bearer " + apiKey())
                     .POST(HttpRequest.BodyPublishers.ofString(json.writeValueAsString(payload)))
                     .build();
             HttpResponse<String> response = http.send(request, HttpResponse.BodyHandlers.ofString());
             if (response.statusCode() / 100 != 2)
                 throw new BizException("VISION_CLOUD_FAILED", "云端识别服务返回 " + response.statusCode() + "，请稍后重试", 502);
-            return parse(crop, task, contentOf(json.readTree(response.body())));
+            return parse(model, crop, task, contentOf(json.readTree(response.body())));
         } catch (BizException e) {
             throw e;
         } catch (java.net.http.HttpTimeoutException e) {
@@ -91,7 +113,7 @@ public class CloudVisionService {
         return content.asString("");
     }
 
-    private Map<String, Object> parse(String crop, String task, String content) {
+    private Map<String, Object> parse(String model, String crop, String task, String content) {
         String text = content == null ? "" : content.trim();
         int start = text.indexOf('{'), end = text.lastIndexOf('}');
         Map<String, Object> result = new LinkedHashMap<>();

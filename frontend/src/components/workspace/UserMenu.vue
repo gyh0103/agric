@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { clearAuth, getUser } from '@/api/auth'
 import FaceManageModal from './FaceManageModal.vue'
 
 defineProps<{ dark?: boolean }>()
 const user = ref(getUser())
+const isAdmin = computed(() => getUser()?.role === 'ADMIN')
 const open = ref(false)
 const faceModalOpen = ref(false)
 
@@ -15,6 +16,11 @@ function toggle() {
 function openFace() {
   open.value = false
   faceModalOpen.value = true
+}
+
+function goAdmin() {
+  open.value = false
+  window.location.href = '/platform/admin'
 }
 
 function logout() {
@@ -42,6 +48,7 @@ function goSignIn() {
             <strong>{{ user.name }}</strong>
             <small>{{ user.email }}</small>
           </div>
+          <button v-if="isAdmin" class="item" @click="goAdmin">后台管理</button>
           <button class="item" @click="openFace">人脸管理</button>
           <button class="item" @click="logout">退出登录</button>
         </template>

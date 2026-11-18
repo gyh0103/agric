@@ -14,6 +14,7 @@ const router = createRouter({
     { path: '/wheat-diagnosis', redirect: '/multicrop?crop=wheat' },
     { path: '/', redirect: '/workspaces/farm-01' },
     { path: '/assistant', component: AgentWorkspaceView, meta: { title: '绿洲丰语 · 智能问农' } },
+    { path: '/admin', component: () => import('@/views/AdminView.vue'), meta: { title: '后台管理', admin: true } },
     { path: '/assistant/legacy', component: AssistantPreviewView, meta: { title: '原问农工作台' } },
     { path: '/workspaces/:id', component: FarmWorkspaceView, meta: { title: '数据工作台' } },
     { path: '/workspaces/:id/greenhouses/:greenhouseId', component: GreenhouseInteriorView, meta: { title: '大棚内部' } },
@@ -31,7 +32,9 @@ router.beforeEach(async to => {
   }
 
   try {
-    saveUser(await fetchMe(token))
+    const user = await fetchMe(token)
+    saveUser(user)
+    if (to.meta.admin && user.role !== 'ADMIN') return '/workspaces/farm-01'
     return true
   } catch {
     return false

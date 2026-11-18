@@ -53,6 +53,11 @@ public class User {
     @Builder.Default
     private String role = "USER";
 
+    /** 管理员可在后台禁用账号；为空视为启用 */
+    @Column(name = "enabled")
+    @Builder.Default
+    private Boolean enabled = Boolean.TRUE;
+
     /** 百度人脸注册成功后返回的 face_token，用于解绑等操作 */
     @Column(name = "face_token", length = 255)
     private String faceToken;

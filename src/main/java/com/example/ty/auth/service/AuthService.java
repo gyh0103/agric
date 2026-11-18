@@ -30,11 +30,13 @@ public class AuthService {
         if (userRepository.existsByEmail(email)) {
             throw BizException.badRequest("该邮箱已被注册");
         }
+        // 首个注册用户自动成为管理员，避免部署后没有任何后台入口
+        String role = userRepository.count() == 0 ? "ADMIN" : "USER";
         User user = User.builder()
                 .name(req.getName().trim())
                 .email(email)
                 .passwordHash(passwordEncoder.encode(req.getPassword()))
-                .role("USER")
+                .role(role)
                 .build();
         userRepository.save(user);
         return new AuthResponse(jwtService.generateToken(user.getId()), UserInfo.from(user));
@@ -47,6 +49,9 @@ public class AuthService {
                 .orElseThrow(() -> BizException.unauthorized("邮箱或密码错误"));
         if (!passwordEncoder.matches(req.getPassword(), user.getPasswordHash())) {
             throw BizException.unauthorized("邮箱或密码错误");
+        }
+        if (Boolean.FALSE.equals(user.getEnabled())) {
+            throw new BizException("ACCOUNT_DISABLED", "账号已被管理员禁用，请联系管理员", 403);
         }
         return new AuthResponse(jwtService.generateToken(user.getId()), UserInfo.from(user));
     }

@@ -10,7 +10,7 @@ export function getToken(): string | null {
   return readStorage(TOKEN_KEY)
 }
 
-export function getUser(): { name?: string; email?: string } | null {
+export function getUser(): { name?: string; email?: string; role?: string } | null {
   try {
     return JSON.parse(readStorage(USER_KEY) || 'null')
   } catch {
